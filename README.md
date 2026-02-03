@@ -24,3 +24,9 @@ To view options hold 'ctrl' and press a corresponding key
 's' - save file
 'v' - paste from clipboard
 'q' - quit
+
+
+## Building
+
+The only dependancy this project has is [SDL3](https://wiki.libsdl.org/SDL3), so that will need to be installed to build.
+
