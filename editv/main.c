@@ -26,84 +26,43 @@ Storage* str;
 
 int w, h;
 
-size_t cursor_x = 0;
-size_t cursor_y = 0;
-
 
 size_t index_offset = 0;//where to start showing the lines from
 size_t line_start = 0;
 
 
-size_t cached_cursor_pos = 0;
+size_t cursor_pos = 0;
+int y_offset = 0;
 
 void inc_cursor_y() {
 
-    if (cached_cursor_pos > STR_END(str)) {
-        return;
-    }
-
-    cursor_y++;
+    y_offset++;
 }
 
 
 void dec_cursor_y() {
-
-    if (cached_cursor_pos == 0) {
-        return;
-    }
-
-    if (cursor_y != 0) {
-        cursor_y--;
-    }
+    y_offset--;
 }
 
 
 void inc_cursor_x() {
 
-    if (cached_cursor_pos == STR_END(str)) {
+    if (cursor_pos >= STR_END(str) - 1) {
         return;
     }
 
-    float scale = 1;
-    int x = SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * 2 * scale;
-    int max_x = (int)((w - x * 2) * scale / (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE));
-
-
-
-    if (cursor_x == max_x) {
-        cursor_x = 1;
-        inc_cursor_y();
-    }
-    else {
-        cursor_x++;
-    }
+    cursor_pos++;
 }
 void dec_cursor_x() {
 
 
-    if (cached_cursor_pos == 0) {
+    if (cursor_pos == 0) {
         return;
     }
-    float scale = 1;
-    int x = SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * 2 * scale;
-    int max_x = (int)((w - x * 2) * scale / (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE));
 
-    if (cursor_x == 0) {
-        cursor_x = max_x;
-        dec_cursor_y();
-    }
-    else {
-        cursor_x--;
-    }
+    cursor_pos--;
 }
 
-
-
-
-size_t cursor_pos() {
-
-    return cached_cursor_pos;
-}
 
 
 /* This function runs once at startup. */
@@ -185,8 +144,8 @@ void Paste() {
 
     size_t clip_size = strlen(clip);
 
-    storage_insert(str, cursor_pos(), clip, clip_size);
-    cursor_x += clip_size;
+    storage_insert(str, cursor_pos, clip, clip_size);
+    cursor_pos += clip_size;
 
     SDL_free(clip);
 }
@@ -326,14 +285,15 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
     if (event->type == SDL_EVENT_KEY_DOWN ) {
         SDL_Keycode key = event->key.key;
         if (key == SDLK_RETURN) {
-            storage_insert_c(str, '\n', cursor_pos());
-            inc_cursor_y();
-            cursor_x = 0;
+            storage_insert_c(str, '\n', cursor_pos);
+            inc_cursor_x();
+            //inc_cursor_y();
+            //cursor_x = 0;
         }
         if (key == SDLK_BACKSPACE) {
-            if (cursor_pos() != 0) {
+            if (cursor_pos != 0) {
                 dec_cursor_x();
-                storage_remove(str, cursor_pos() - 1, 1);
+                storage_remove(str, cursor_pos, 1);
                 
             }
 
@@ -393,7 +353,7 @@ if (func_mode) {
 
         const char* text = event->text.text;
 
-        storage_insert(str, cursor_pos(), text, strlen(text));
+        storage_insert(str, cursor_pos, text, strlen(text));
 
         for (size_t i = 0; i < strlen(text); i++)
         {
@@ -433,7 +393,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result)
 
 
 
-void DrawMenu(float x, float y) {
+void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {
 
     if (func_mode) {
         SDL_RenderDebugText(renderer, x, y, "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'   paste: 'v'");
@@ -499,6 +459,9 @@ void Draw() {
 
     size_t cursorLineIndex = 0;
 
+    size_t cursor_x = 0;
+    size_t cursor_y = line_start;
+
 
     //loop over every character in buffer
     while (index < STR_END(str)) {
@@ -528,6 +491,16 @@ void Draw() {
         {
             char c = storage_get(str, index);
 
+
+            //if (index == cursor_pos) {
+
+            //    cursor_y = curLine;
+            //    cursor_x = l;
+
+            //}
+
+
+
             if (c == '\n') { //hit a newline
                 index++; //move index over the newline
                 break;
@@ -542,6 +515,7 @@ void Draw() {
 
             index++; //increment the index to the next char
 
+
             if (l == max_x) { //hit end of page, so wrap
                 //index++;
                 break;
@@ -549,9 +523,6 @@ void Draw() {
         }
 
         buf[l] = '\0'; //null terminate buffer
-
-
-
 
         //use debug render text for now
         SDL_RenderDebugText(renderer, x, y, buf);
@@ -570,25 +541,64 @@ void Draw() {
         }
     }
 
+    if (cursor_pos >= 0 && cursor_pos <= STR_END(str)) {
+
+        if ((lines[line_count - 1].index + lines[line_count - 1].length) < cursor_pos) {
+
+            cursor_y = line_count + line_start;
+            cursor_x = 0;
+
+        }
+        else {
+
+            for (size_t i = 0; i < line_count; i++)
+            {
+                if (cursor_pos >= lines[i].index && cursor_pos <= (lines[i].index + lines[i].length)) {
+                    cursor_y = i + line_start;
+                    cursor_x = cursor_pos - lines[i].index;
+                    break;
+                }
+            }
+        }
+
+    }
 
 
-    //find cursor position
+    int new_y = cursor_y + y_offset;
 
-    if (cursor_y < line_start) {
+    y_offset = 0;
 
-        //scroll up
-        if (cursor_y < line_start) {//off the top of the page
 
+    if (line_count > max_y && new_y >= line_count + line_start) { //off bottom of page
+        //checking to make sure we only do this if theres more than 2 lines on page, which should never happen but id rather do a check than potentially jump to uninitialied memory
+        if (line_count > 1) {
+            index_offset = lines[1].index; //we have already cached the line index of the first line
+            line_start++;
+
+            cursor_pos = lines[line_count - 1].index + SDL_min(cursor_x, lines[line_count - 1].length);
+
+            cursor_y = line_start + line_count;
+
+            cursor_x = cursor_pos - lines[line_count - 1].index;
+        }
+
+
+
+    }
+    else if (new_y < line_start) { //off top of page
+
+        if (new_y > 0) {
             int in = index_offset; // points to the first character to be shown
             in -= 2; // move back and skip the newline
 
-
+            int l = 0;
             //bounds checking
             if (in > 0) {
                 //loops backward through the array until its reaches a newline
                 while (storage_get(str, in) != '\n')
                 {
                     in--;
+                    l++;
                     if (in == 0) {
                         in--; //adjust so it lands on 0
                         break;
@@ -604,61 +614,66 @@ void Draw() {
                 line_start--;
             }
 
+
+            cursor_x = SDL_min(cursor_x, l);
+            cursor_pos = in + cursor_x;
+
             cursor_y = line_start; //adjust the y pos to the start of the new page
 
+            //cursor_x = cursor_pos - lines[line_count - 1].index;
         }
 
+
     }
-    else if (cursor_y < line_start + line_count) {
-        line_t cursor_line = lines[cursor_y - line_start]; //get the line the cursor is on
+    else { // on page
 
-        //adjust the cursor pos to be a sane position
-        cursor_x = min(cursor_x, cursor_line.length);//clamp the cursor x to the line end
-        cursorLineIndex = cursor_line.index;
-    }
-    else if (cursor_y >= line_start + line_count) { //past the end of the line buffer
+        if (new_y - line_start < line_count) {
+            size_t i = SDL_clamp(new_y - line_start, 0, line_count);
 
+            cursor_pos = lines[i].index + SDL_min(cursor_x, lines[i].length);
 
-        //special casing for lines that end with a newline - ie a blank line at the bottom of the page
-
-        char c = storage_get(str, STR_END(str));
-
-        if (storage_get(str, STR_END(str)) == '\n') { //last char is a newline or eof
-
-            cursor_y = line_start + line_count;
-            cursor_x = 0;
-            cursorLineIndex = STR_END(str);
+            cursor_y = i + line_start;
+            cursor_x = cursor_pos - lines[i].index;
         }
-        else //past the end line when it shouldnt be
-        {
 
-            //scroll down
-            if (cursor_y > line_start + max_y) {//off the bottom of the page
 
-                //checking to make sure we only do this if theres more than 2 lines on page, which should never happen but id rather do a check than potentially jump to uninitialied memory
-                if (line_count > 1) {
-                    index_offset = lines[1].index; //we have already cached the line index of the first line
-                    line_start++;
+    }
+
+
+
+    //scroll up
+    if (cursor_y < line_start) {//off the top of the page
+
+        int in = index_offset; // points to the first character to be shown
+        in -= 2; // move back and skip the newline
+
+
+        //bounds checking
+        if (in > 0) {
+            //loops backward through the array until its reaches a newline
+            while (storage_get(str, in) != '\n')
+            {
+                in--;
+                if (in == 0) {
+                    in--; //adjust so it lands on 0
+                    break;
                 }
-
             }
-            else if (line_count != 0) {
-
-                line_t cursor_line = lines[line_count - 1]; //get the line the cursor is on
-
-                //adjust the cursor pos to be a sane position
-
-                cursor_y = line_start + line_count - 1;
-                cursor_x = min(cursor_x, cursor_line.length);//clamp the cursor x to the line end
-                cursorLineIndex = cursor_line.index;
-            }
-
+            in++;//move off the found newline
         }
+
+
+
+        cursor_pos = in;
+        if (line_start != 0) {
+            line_start--;
+        }
+
+        cursor_y = line_start; //adjust the y pos to the start of the new page
+
+        cursor_x = cursor_pos - line_start;
+
     }
-
-
-    cached_cursor_pos = cursorLineIndex + cursor_x; //calculate the offset pos based on the calculated position in the array
-
 
     //draw cursor
 
@@ -678,6 +693,6 @@ void Draw() {
     }
 
 
-    DrawMenu(cw, ch);
+    DrawMenu(cw, ch, cursor_x, cursor_y);
 
 }

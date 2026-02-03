@@ -9,7 +9,6 @@ project(
 
 set(SOURCE_FILES
   editv/main.c
-  editv/interface.c
   editv/storage.c
 )
 
