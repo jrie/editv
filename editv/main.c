@@ -75,8 +75,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
         return SDL_APP_FAILURE;
     }
 
-    edv_init(window);
-
     //char* filename = "file.txt";
 
     //FILE* f = fopen(filename, "r");
@@ -158,6 +156,7 @@ void SaveCallback(void* userdata, const char* const* filelist, int filter) {
 
     if (filelist[0] == NULL) {
         printf("Save Cancelled\n");
+        return;
     }
 
     size_t len = strlen(filelist[0]);
@@ -186,6 +185,11 @@ void SaveCallback(void* userdata, const char* const* filelist, int filter) {
 }
 
 void OpenCallback(void* userdata, const char* const* filelist, int filter) {
+
+    if (filelist[0] == NULL) {
+        printf("Open Cancelled\n");
+        return;
+    }
 
     size_t len = strlen(filelist[0]);
 
@@ -221,14 +225,18 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
     if (count == 0) {
         printf("Failed to open file '%s'\n", openFile);
         SDL_CloseIO(stream);
+        free(buf);
         return;
     }
 
     SDL_CloseIO(stream);
 
     Storage* s = storage_alloccopy(buf, count);
+
+    free(buf);
     if (s == NULL) {
         printf("Failed to open file '%s'\n", openFile);
+        
         return;
     }
 

@@ -1,3 +1,0 @@
-gcc main.c storage.c interface.c -o editv -I/path/to/SDL3/include -L/path/to/SDL3/lib -lSDL3
-
-gcc -DPORTABLE=0 editv/main.c editv/storage.c editv/interface.c -o build/editv -IK:\programmingz\SDL\include -LK:\programmingz\SDL\VisualC\x64\Debug\SDL3.lib -lSDL3
