@@ -210,12 +210,12 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     SDL_SeekIO(stream, 0, SDL_IO_SEEK_END);
 
-    long fsize = SDL_TellIO(stream);
+    Sint64 fsize = SDL_TellIO(stream);
 
     SDL_SeekIO(stream, 0, SDL_IO_SEEK_SET);
 
     
-    const char* buf = SDL_malloc(sizeof(char) * fsize);
+    char* buf = SDL_malloc(sizeof(char) * fsize);
     if (buf == NULL) {
         printf("Failed to open file '%s'\n", openFile);
         return;
@@ -231,7 +231,19 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     SDL_CloseIO(stream);
 
-    Storage* s = storage_alloccopy(buf, count);
+    unsigned char *loadFrom = buf;
+
+    unsigned char b0 = buf[0];
+    unsigned char b1 = buf[1];
+    unsigned char b2 = buf[2];
+
+    if (b0 == 0xEF && b1 == 0xBB && b2 == 0xBF) { //UTF BOM, strip
+        loadFrom += 3;
+        count -= 3;
+        
+    }
+
+    Storage* s = storage_alloccopy(loadFrom, count);
 
     SDL_free(buf);
     if (s == NULL) {
@@ -408,7 +420,7 @@ void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {
     }
     else
     {
-        const char buf[256];
+        char buf[256];
 
         SDL_snprintf(buf, 256, "INSERT (%zu, %zu)", cursor_x, cursor_y);
 
@@ -433,16 +445,16 @@ void Draw() {
     cw = (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE)*scale;
     ch = (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE)*scale;
 
-    int xorigin = cw * 2;
+    int xorigin = (int)cw * 2;
     if (show_line_numbers) {
-        xorigin += cw * 4;
+        xorigin += (int)(cw * 4);
     }
 
 
-    int yorigin = ch * 4;
+    int yorigin = (int)ch * 4;
 
-    x = xorigin;
-    y = yorigin;
+    x = (float)xorigin;
+    y = (float)yorigin;
 
     int max_x = (int)((w - x * 2) / (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE));
     int max_y = (int)((h - (y + line_gap) * 2) / (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE));
@@ -451,8 +463,8 @@ void Draw() {
 
 
 
-    int curLine = line_start; //line offset into array, we need this for proper cursor placement. cached so that we dont have to loop the entire array every time we render
-    int index = index_offset; //start at the offset index
+    int curLine = (int)line_start; //line offset into array, we need this for proper cursor placement. cached so that we dont have to loop the entire array every time we render
+    int index = (int)index_offset; //start at the offset index
 
 
 
@@ -461,6 +473,8 @@ void Draw() {
 
 
     line_t lines[256];
+    lines[0].index = 0;
+    lines[0].length = 0;
     size_t line_count = 0;
 
 
@@ -550,29 +564,31 @@ void Draw() {
     }
 
     if (cursor_pos >= 0 && cursor_pos <= STR_END(str)) {
+        if (line_count > 0) {
+            if ((lines[line_count - 1].index + lines[line_count - 1].length) < cursor_pos) {
 
-        if ((lines[line_count - 1].index + lines[line_count - 1].length) < cursor_pos) {
+                cursor_y = line_count + line_start;
+                cursor_x = 0;
 
-            cursor_y = line_count + line_start;
-            cursor_x = 0;
+            }
+            else {
 
-        }
-        else {
-
-            for (size_t i = 0; i < line_count; i++)
-            {
-                if (cursor_pos >= lines[i].index && cursor_pos <= (lines[i].index + lines[i].length)) {
-                    cursor_y = i + line_start;
-                    cursor_x = cursor_pos - lines[i].index;
-                    break;
+                for (size_t i = 0; i < line_count; i++)
+                {
+                    if (cursor_pos >= lines[i].index && cursor_pos <= (lines[i].index + lines[i].length)) {
+                        cursor_y = i + line_start;
+                        cursor_x = cursor_pos - lines[i].index;
+                        break;
+                    }
                 }
             }
         }
 
+
     }
 
 
-    int new_y = cursor_y + y_offset;
+    int new_y = (int)cursor_y + y_offset;
 
     y_offset = 0;
 
@@ -596,7 +612,7 @@ void Draw() {
     else if (new_y < line_start) { //off top of page
 
         if (new_y > 0) {
-            int in = index_offset; // points to the first character to be shown
+            int in = (int)index_offset; // points to the first character to be shown
             in -= 2; // move back and skip the newline
 
             int l = 0;
@@ -652,7 +668,7 @@ void Draw() {
     //scroll up
     if (cursor_y < line_start) {//off the top of the page
 
-        int in = index_offset; // points to the first character to be shown
+        int in = (int)index_offset; // points to the first character to be shown
         in -= 2; // move back and skip the newline
 
 

@@ -282,7 +282,7 @@ int storage_match(Storage * str, int *buffer, size_t max, char *expr){
 
 size_t storage_nextline(Storage* str, size_t index) {
 
-    char ch;
+    char ch = 0;
     while (ch = storage_get(str,index++) && ch != '\n')
     {
 
