@@ -14,13 +14,18 @@ Storage* storage_alloc(size_t size){
 
     Storage *s = malloc(sizeof(Storage));
 
+    if (size == 0) {
+        printf("Cannot create buffer with size of 0\n");
+        return NULL;
+    }
+
     if (s == NULL) {
         printf("Failed to create storage buffer\n");
         return NULL;
     }
 
 
-    s->front_size = size;
+    s->front_size = size; //because the front buffer doesnt like being zero and will cause a weird initial state that has to be reset by intserting a newline
     s->gap_size = BUFFER_GAP_SIZE;
 
 
@@ -34,6 +39,7 @@ Storage* storage_alloc(size_t size){
     s->buffer = tmp;
 
     s->buffer[s->buffer_size] = 0;
+    s->buffer[0] = '\n';
     return s;
 
 }
@@ -43,6 +49,7 @@ Storage* storage_alloccopy(const char* string, size_t size) {
     Storage* s = storage_alloc(size);
 
     memcpy(s->buffer, string, size);
+
 
     return s;
 
@@ -70,7 +77,9 @@ Storage* storage_load(FILE* file){
         return NULL;
     }
     size_t count = fread(buf, sizeof(char), fsize, file);
-
+    if (count == 0) {
+        return NULL;
+    }
     
     Storage* s = storage_alloccopy(buf,count);
     if (s == NULL) {
