@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "storage.h"
 
 
@@ -90,9 +87,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
         return SDL_APP_FAILURE;
     }
 
-    printf("\n\nBUFFER\n\n");
+    SDL_Log("\n\nBUFFER\n\n");
 
-    printf("\n");
+    SDL_Log("\n");
 
 
 
@@ -114,8 +111,8 @@ void UpdateTitle() {
 
     char buf[256];
 
-    if (strlen(openFile) != 0) {
-        snprintf(buf, 256, "%s - %s", appname, openFile);
+    if (SDL_strlen(openFile) != 0) {
+        SDL_snprintf(buf, 256, "%s - %s", appname, openFile);
 
         SDL_SetWindowTitle(window, buf); 
     }
@@ -140,7 +137,7 @@ void Paste() {
 
     char* clip = SDL_GetClipboardText();
 
-    size_t clip_size = strlen(clip);
+    size_t clip_size = SDL_strlen(clip);
 
     storage_insert(str, cursor_pos, clip, clip_size);
     cursor_pos += clip_size;
@@ -155,17 +152,17 @@ void Undo() {
 void SaveCallback(void* userdata, const char* const* filelist, int filter) {
 
     if (filelist[0] == NULL) {
-        printf("Save Cancelled\n");
+        SDL_Log("Save Cancelled\n");
         return;
     }
 
-    size_t len = strlen(filelist[0]);
+    size_t len = SDL_strlen(filelist[0]);
 
     if (len > 256) {
-        printf("File Path Too Long\n");
+        SDL_Log("File Path Too Long\n");
         return;
     }
-    strcpy_s(openFile, len+1, filelist[0]);
+    SDL_strlcpy(openFile, filelist[0], len+1);
     lastFilePath = openFile;
 
     
@@ -179,7 +176,8 @@ void SaveCallback(void* userdata, const char* const* filelist, int filter) {
 
     SDL_CloseIO(stream);
 
-    printf("Saved As: '%s'\n", openFile);
+    
+    SDL_Log("Saved As: '%s'\n", openFile);
 
     UpdateTitle();
 }
@@ -187,17 +185,18 @@ void SaveCallback(void* userdata, const char* const* filelist, int filter) {
 void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     if (filelist[0] == NULL) {
-        printf("Open Cancelled\n");
+        SDL_Log("Open Cancelled\n");
         return;
     }
 
-    size_t len = strlen(filelist[0]);
+    size_t len = SDL_strlen(filelist[0]);
 
     if (len > 256) {
-        printf("File Path Too Long\n");
+        SDL_Log("File Path Too Long\n");
         return;
     }
-    strcpy_s(openFile,len+1, filelist[0]);
+
+    SDL_strlcpy(openFile, filelist[0], len+1);
     lastFilePath = openFile;
 
 
@@ -205,7 +204,7 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
     SDL_IOStream* stream = SDL_IOFromFile(openFile, "r");
 
     if (stream == NULL) {
-        printf("Failed to open file '%s'\n", openFile);
+        SDL_Log("Failed to open file '%s'\n", openFile);
         return;
     }
 
@@ -215,17 +214,18 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     SDL_SeekIO(stream, 0, SDL_IO_SEEK_SET);
 
-    const char* buf = malloc(sizeof(char) * fsize);
+    
+    const char* buf = SDL_malloc(sizeof(char) * fsize);
     if (buf == NULL) {
-        printf("Failed to open file '%s'\n", openFile);
+        SDL_Log("Failed to open file '%s'\n", openFile);
         return;
     }
     size_t count = SDL_ReadIO(stream, buf, fsize);
 
     if (count == 0) {
-        printf("Failed to open file '%s'\n", openFile);
+        SDL_Log("Failed to open file '%s'\n", openFile);
         SDL_CloseIO(stream);
-        free(buf);
+        SDL_free(buf);
         return;
     }
 
@@ -233,9 +233,9 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     Storage* s = storage_alloccopy(buf, count);
 
-    free(buf);
+    SDL_free(buf);
     if (s == NULL) {
-        printf("Failed to open file '%s'\n", openFile);
+        SDL_Log("Failed to open file '%s'\n", openFile);
         
         return;
     }
@@ -245,17 +245,17 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
     }
 
 
-    printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+    SDL_Log("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
 
     storage_realloc(s);
 
-    printf("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+    SDL_Log("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
 
 
 
     str = s;
 
-    printf("Opened: '%s'\n", openFile);
+    SDL_Log("Opened: '%s'\n", openFile);
     UpdateTitle();
 }
 
@@ -361,9 +361,9 @@ if (func_mode) {
 
         const char* text = event->text.text;
 
-        storage_insert(str, cursor_pos, text, strlen(text));
+        storage_insert(str, cursor_pos, text, SDL_strlen(text));
 
-        for (size_t i = 0; i < strlen(text); i++)
+        for (size_t i = 0; i < SDL_strlen(text); i++)
         {
             inc_cursor_x();
         }
@@ -410,7 +410,7 @@ void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {
     {
         const char buf[256];
 
-        snprintf(buf, 256, "INSERT (%zu, %zu)", cursor_x, cursor_y);
+        SDL_snprintf(buf, 256, "INSERT (%zu, %zu)", cursor_x, cursor_y);
 
         SDL_RenderDebugText(renderer, x, y, buf);
     }
@@ -476,7 +476,7 @@ void Draw() {
 
         if (show_line_numbers) {
 
-            snprintf(buf, buflen, "%d", curLine);
+            SDL_snprintf(buf, buflen, "%d", curLine);
 
             SDL_SetRenderDrawColor(renderer, 155, 155, 155, 255);
 

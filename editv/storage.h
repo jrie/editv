@@ -1,10 +1,11 @@
 #pragma once
 #include <stddef.h>
-#include <stdio.h>
 
 #define BUFFER_GAP_SIZE 512
 
 #define STR_END(str) str->buffer_size - str->gap_size
+
+
 
 typedef struct Storage
 {
@@ -24,9 +25,6 @@ void storage_free(Storage* str);
 
 Storage* storage_alloc(size_t size);
 Storage* storage_alloccopy(const char* string, size_t size);
-
-Storage* storage_load(FILE* file);
-
 
 //index storage ignoring the gap
 char storage_get(Storage* str, size_t index);

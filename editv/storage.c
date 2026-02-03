@@ -1,26 +1,28 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "SDL3/SDL_stdinc.h"
+#include "SDL3/SDL_iostream.h"
+#include <SDL3/SDL_log.h>
 #include "storage.h"
 
 
 
 void storage_free(Storage* str){
-    free(str->buffer);
-    free(str);
+    SDL_free(str->buffer);
+    SDL_free(str);
 }
 
 Storage* storage_alloc(size_t size){
 
-    Storage *s = malloc(sizeof(Storage));
+    Storage *s = SDL_malloc(sizeof(Storage));
 
     if (size == 0) {
-        printf("Cannot create buffer with size of 0\n");
+        
+        
+        SDL_Log("Cannot create buffer with size of 0\n");
         return NULL;
     }
 
     if (s == NULL) {
-        printf("Failed to create storage buffer\n");
+        SDL_Log("Failed to create storage buffer\n");
         return NULL;
     }
 
@@ -31,7 +33,7 @@ Storage* storage_alloc(size_t size){
 
     s->buffer_size = size + BUFFER_GAP_SIZE;
 
-    char* tmp = malloc(s->buffer_size+1);
+    char* tmp = SDL_malloc(s->buffer_size+1);
     if (tmp == NULL) {
         return NULL;
     }
@@ -47,116 +49,13 @@ Storage* storage_alloc(size_t size){
 Storage* storage_alloccopy(const char* string, size_t size) {
 
     Storage* s = storage_alloc(size);
-
-    memcpy(s->buffer, string, size);
+    
+    SDL_memcpy(s->buffer, string, size);
 
 
     return s;
 
 }
-
-
-Storage* storage_load_SDL(FILE* file) {
-
-
-    if (file == NULL) {
-        //printf("Failed to open file '%s'\n", filename);
-        return NULL;
-    }
-
-    fseek(file, 0, SEEK_END);
-    long fsize = ftell(file);
-
-    //fseek(file, 0L, SEEK_SET);
-
-    rewind(file);
-
-
-
-    const char* buf = malloc(sizeof(char) * fsize);
-    if (buf == NULL) {
-        return NULL;
-    }
-    size_t count = fread(buf, sizeof(char), fsize, file);
-    if (count == 0) {
-        return NULL;
-    }
-
-    Storage* s = storage_alloccopy(buf, count);
-    if (s == NULL) {
-        return NULL;
-    }
-
-
-    printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
-
-    storage_realloc(s);
-
-    printf("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
-
-
-    //for (size_t i = 0; i < BUFFER_GAP_SIZE; i++)
-    //{
-        //s->buffer[s->front_last + i + 1] = 'h';
-    //}
-
-    //s->buffer[s->front_last] = '&';
-
-    return s;
-
-}
-
-
-Storage* storage_load(FILE* file){
-
-    
-    if (file == NULL) {
-        //printf("Failed to open file '%s'\n", filename);
-        return NULL;
-    }
-
-    fseek(file, 0, SEEK_END);
-    long fsize = ftell(file);
-
-    //fseek(file, 0L, SEEK_SET);
-
-    rewind(file);
-
-    
-
-    const char* buf = malloc(sizeof(char) * fsize);
-    if (buf == NULL) {
-        return NULL;
-    }
-    size_t count = fread(buf, sizeof(char), fsize, file);
-    if (count == 0) {
-        return NULL;
-    }
-    
-    Storage* s = storage_alloccopy(buf,count);
-    if (s == NULL) {
-        return NULL;
-    }
-
-
-    printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
-
-    storage_realloc(s);
-
-    printf("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
-
-
-    //for (size_t i = 0; i < BUFFER_GAP_SIZE; i++)
-    //{
-        //s->buffer[s->front_last + i + 1] = 'h';
-    //}
-
-    //s->buffer[s->front_last] = '&';
-
-    return s;
-
-}
-
 
 //index storage ignoring the gap
 char storage_get(Storage *str, size_t index){
@@ -213,13 +112,13 @@ void storage_move_gap(Storage *str, size_t pos){
 
 int storage_grow(Storage *str){
 
-    printf("realloced\n");
+    SDL_Log("realloced\n");
     storage_move_gap(str, STR_END(str)); //move gap to front of storage
     
     str->buffer_size += BUFFER_GAP_SIZE;
 
     char* tmp = NULL;
-    tmp = realloc(str->buffer, str->buffer_size);
+    tmp = SDL_realloc(str->buffer, str->buffer_size);
     if(tmp == NULL){
         return 0;
     }
@@ -233,13 +132,13 @@ int storage_grow(Storage *str){
 
 int storage_realloc(Storage *str){
 
-    printf("realloced\n");
+    SDL_Log("realloced\n");
     storage_move_gap(str, STR_END(str)); //move gap to front of storage
 
     str->buffer_size -= str->gap_size - BUFFER_GAP_SIZE;
 
     char* tmp = NULL;
-    tmp = realloc(str->buffer, str->buffer_size);
+    tmp = SDL_realloc(str->buffer, str->buffer_size);
     if (tmp == NULL) {
         return 0;
     }
@@ -299,7 +198,7 @@ int storage_insert(Storage * str, size_t pos,const char *s, size_t length){
     }
 
 
-    memcpy((str->buffer+str->front_size),s,length);
+    SDL_memcpy((str->buffer+str->front_size),s,length);
 
     str->front_size+=length;
     str->gap_size-=length;
@@ -318,7 +217,7 @@ int storage_remove(Storage * str, size_t pos, size_t count){
         storage_move_gap(str,pos+count);
     }
 
-    //dont actually have to do any allocating, just mark the area as free
+    //dont actually have to do any allocating, just mark the area as SDL_free
     str->front_size-=count;
     str->gap_size+=count;
 
@@ -344,7 +243,7 @@ int storage_overwrite(Storage * str, size_t pos, char *s, size_t length){
     }
 
 
-    memcpy((str->buffer+str->front_size-length-1),s,length);
+    SDL_memcpy((str->buffer+str->front_size-length-1),s,length);
 
     return 1;
 }
@@ -357,7 +256,7 @@ int storage_match(Storage * str, int *buffer, size_t max, char *expr){
     int buf_index = 0;
 
 
-    size_t len = strlen(expr);
+    size_t len = SDL_strlen(expr);
 
     for (int i = 0; i < STR_END(str); i++)
     {
@@ -402,9 +301,9 @@ void storage_replaceall(Storage *str, char *target, char* s){
 
     int c = storage_match(str,names,sizeof(names) / sizeof(names[0]),target);
 
-    size_t targetlength = strlen(target);
+    size_t targetlength = SDL_strlen(target);
 
-    size_t slength = strlen(s);
+    size_t slength = SDL_strlen(s);
 
     for (int i = c; i > 0; i--)
     {
@@ -416,7 +315,7 @@ void storage_replaceall(Storage *str, char *target, char* s){
 
 
 void print_buffer(Storage * str){
-    //printf("\'%.*s%.*s\'\n", str->front_idx + 1, str->buffer,str->buffer_size - str->gap_size - str->front_idx + 1 ,(str->buffer + str->front_idx + 1 + str->gap_size));
+    //SDL_Log("\'%.*s%.*s\'\n", str->front_idx + 1, str->buffer,str->buffer_size - str->gap_size - str->front_idx + 1 ,(str->buffer + str->front_idx + 1 + str->gap_size));
 
     int i = 0;
     char ch;
@@ -447,7 +346,7 @@ void print_lines(Storage *str){
     int l = 1;
     while (i < str->buffer_size)
     {
-        printf("%d: ",l++);
+        SDL_Log("%d: ",l++);
 
         while (i < str->buffer_size && str->buffer[i] != '\n')
         {
@@ -462,7 +361,7 @@ void print_lines(Storage *str){
                 i++;
             }
         }
-        printf("\n");
+        SDL_Log("\n");
         i++;
 
     }
@@ -471,7 +370,7 @@ void print_lines(Storage *str){
 
 void storage_wipe_gap(Storage *str){
 
-    memset((str->buffer+str->front_size),'0',str->gap_size);
+    SDL_memset((str->buffer+str->front_size),'0',str->gap_size);
 
 }
 
