@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "storage.h"
-#include "interface.h"
 
 
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
@@ -181,77 +180,136 @@ void New() {
 }
 
 void Paste() {
-    char* clip;
-    size_t clip_size = edv_clipboard(&clip);
+
+    char* clip = SDL_GetClipboardText();
+
+    size_t clip_size = strlen(clip);
 
     storage_insert(str, cursor_pos(), clip, clip_size);
-    cursor_x += clip_size-1;
+    cursor_x += clip_size;
 
-    free(clip);
+    SDL_free(clip);
 }
 
 void Undo() {
 
 }
 
+void SaveCallback(void* userdata, const char* const* filelist, int filter) {
+
+    if (filelist[0] == NULL) {
+        printf("Save Cancelled\n");
+    }
+
+    size_t len = strlen(filelist[0]);
+
+    if (len > 256) {
+        printf("File Path Too Long\n");
+        return;
+    }
+    strcpy_s(openFile, len+1, filelist[0]);
+    lastFilePath = openFile;
+
+    
+
+    SDL_IOStream *stream = SDL_IOFromFile(openFile, "w");
+
+    SDL_WriteIO(stream, str->buffer, str->front_size * sizeof(char));
+    SDL_WriteIO(stream, str->buffer + str->front_size + str->gap_size, str->buffer_size - str->front_size - str->gap_size * sizeof(char));
+
+
+
+    SDL_CloseIO(stream);
+
+    printf("Saved As: '%s'\n", openFile);
+
+    UpdateTitle();
+}
+
+void OpenCallback(void* userdata, const char* const* filelist, int filter) {
+
+    size_t len = strlen(filelist[0]);
+
+    if (len > 256) {
+        printf("File Path Too Long\n");
+        return;
+    }
+    strcpy_s(openFile,len+1, filelist[0]);
+    lastFilePath = openFile;
+
+
+
+    SDL_IOStream* stream = SDL_IOFromFile(openFile, "r");
+
+    if (stream == NULL) {
+        printf("Failed to open file '%s'\n", openFile);
+        return;
+    }
+
+    SDL_SeekIO(stream, 0, SDL_IO_SEEK_END);
+
+    long fsize = SDL_TellIO(stream);
+
+    SDL_SeekIO(stream, 0, SDL_IO_SEEK_SET);
+
+    const char* buf = malloc(sizeof(char) * fsize);
+    if (buf == NULL) {
+        printf("Failed to open file '%s'\n", openFile);
+        return;
+    }
+    size_t count = SDL_ReadIO(stream, buf, fsize);
+
+    if (count == 0) {
+        printf("Failed to open file '%s'\n", openFile);
+        SDL_CloseIO(stream);
+        return;
+    }
+
+    SDL_CloseIO(stream);
+
+    Storage* s = storage_alloccopy(buf, count);
+    if (s == NULL) {
+        printf("Failed to open file '%s'\n", openFile);
+        return;
+    }
+
+    if (str) {
+        storage_free(str);
+    }
+
+
+    printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+
+    storage_realloc(s);
+
+    printf("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+
+
+
+    str = s;
+
+    printf("Opened: '%s'\n", openFile);
+    UpdateTitle();
+}
+
 void Save() {
 
-    int found = edv_save_file(lastFilePath, openFile, 256);
+    const SDL_DialogFileFilter filters[] = {
+        { "Text files",  "txt" },
+        { "All files",   "*" }
+    };
 
-    if (found == 0) {
-        lastFilePath = openFile;
-
-        FILE* f = fopen(openFile, "w");
-
-        fwrite(str->buffer, sizeof(char), str->front_size, f);
-        fwrite(str->buffer + str->front_size + str->gap_size, sizeof(char), str->buffer_size - str->front_size - str->gap_size, f);
-
-        fclose(f);
-
-        printf("Saved As: '%s'\n", openFile);
-    }
-    else {
-        printf("Save canceled\n");
-    }
+    SDL_ShowSaveFileDialog(SaveCallback, NULL, window, filters, 2, lastFilePath);
 }
 
 void Open() {
 
-    int found = edv_open_file(lastFilePath, openFile, 256);
+    const SDL_DialogFileFilter filters[] = {
+    { "Text files",  "txt" },
+    { "All files",   "*" }
+    };
 
-    if (found == 0) {
-
-        lastFilePath = openFile;
-
-        
-        UpdateTitle();
-
-
-        FILE* f = fopen(openFile, "r");
-
-        Storage *tmp = storage_load(f);
-        if (tmp == NULL) {
-            printf("Failed to open file '%s'\n", openFile);
-            return;
-        }
-
-        if (str) {
-            storage_free(str);
-        }
-        str = tmp;
-
-        cursor_x = 0;
-        cursor_y = 0;
-        line_start = 0;
-        index_offset = 0;
-
-        fclose(f);
-
-        printf("Opened: '%s'\n", openFile);
-    }
-    else {
-        printf("Open canceled\n");
-    }
+    SDL_ShowOpenFileDialog(OpenCallback, NULL, window, filters, 2, lastFilePath,0);
 }
 
 

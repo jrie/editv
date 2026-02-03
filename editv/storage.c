@@ -55,6 +55,58 @@ Storage* storage_alloccopy(const char* string, size_t size) {
 
 }
 
+
+Storage* storage_load_SDL(FILE* file) {
+
+
+    if (file == NULL) {
+        //printf("Failed to open file '%s'\n", filename);
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long fsize = ftell(file);
+
+    //fseek(file, 0L, SEEK_SET);
+
+    rewind(file);
+
+
+
+    const char* buf = malloc(sizeof(char) * fsize);
+    if (buf == NULL) {
+        return NULL;
+    }
+    size_t count = fread(buf, sizeof(char), fsize, file);
+    if (count == 0) {
+        return NULL;
+    }
+
+    Storage* s = storage_alloccopy(buf, count);
+    if (s == NULL) {
+        return NULL;
+    }
+
+
+    printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+
+    storage_realloc(s);
+
+    printf("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+
+
+    //for (size_t i = 0; i < BUFFER_GAP_SIZE; i++)
+    //{
+        //s->buffer[s->front_last + i + 1] = 'h';
+    //}
+
+    //s->buffer[s->front_last] = '&';
+
+    return s;
+
+}
+
+
 Storage* storage_load(FILE* file){
 
     
