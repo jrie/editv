@@ -1,7 +1,40 @@
 #include "interface.h"
 #include <string.h>
+#include <stdio.h>
 
-#ifdef _WIN32
+#if(PORTABLE == 1)
+
+
+void edv_init(SDL_Window* window) {
+}
+
+int edv_open_file(const char* lastOpenFile, char* buffer, size_t length) {
+
+	printf("Insert File Open Location:\n");
+
+	fgets(buffer, length, stdin);
+	buffer[strcspn(buffer, "\n")] = 0;
+
+	return 0;
+}
+
+int edv_save_file(const char* lastOpenFile, char* buffer, size_t length) {
+
+	printf("Insert File Save Location:\n");
+
+	fgets(buffer, length, stdin);
+	buffer[strcspn(buffer, "\n")] = 0;
+
+	return 0;
+}
+
+const size_t edv_clipboard(char** clip) {
+
+	return 0;
+}
+
+
+#elif defined (_WIN32)
 
 #include <windows.h>
 #include <shobjidl_core.h>
@@ -188,5 +221,7 @@ const size_t edv_clipboard(char** clip){
 
 	return newsize;
 }
+#else //unsupported platform
+
 
 #endif

@@ -1,5 +1,6 @@
 #pragma once
-
+#include <stddef.h>
+#include <stdio.h>
 
 #define BUFFER_GAP_SIZE 512
 
@@ -16,7 +17,6 @@ typedef struct Storage
     size_t gap_size;
 
 } Storage;
-
 
 
 

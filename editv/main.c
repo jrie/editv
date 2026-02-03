@@ -10,6 +10,8 @@
 #include <SDL3/SDL_main.h>
 
 
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+
 typedef struct
 {
     size_t index; //index into the buffer that this line starts
@@ -108,6 +110,7 @@ size_t cursor_pos() {
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 {
+
     /* Create the window */
     if (!SDL_CreateWindowAndRenderer("editv", 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
         SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
@@ -198,7 +201,7 @@ void Save() {
     if (found == 0) {
         lastFilePath = openFile;
 
-        FILE* f = fopen(openFile, L"w");
+        FILE* f = fopen(openFile, "w");
 
         fwrite(str->buffer, sizeof(char), str->front_size, f);
         fwrite(str->buffer + str->front_size + str->gap_size, sizeof(char), str->buffer_size - str->front_size - str->gap_size, f);
@@ -224,7 +227,7 @@ void Open() {
         UpdateTitle();
 
 
-        FILE* f = fopen(openFile, L"r");
+        FILE* f = fopen(openFile, "r");
 
         Storage *tmp = storage_load(f);
         if (tmp == NULL) {
