@@ -67,8 +67,8 @@ cmake --build .
 
 Ensure [GCC](https://gcc.gnu.org/) is installed
 
-In the source directory, run this command to build a portable version of editv
+In the source directory, run this command to build with GCC  
 ```
-gcc -DPORTABLE=1 editv/main.c editv/storage.c editv/interface.c -o build/editv -I/path/to/SDL3/include -L/path/to/SDL3/lib -lSDL3
+gcc editv/main.c editv/storage.c -o build/editv -I/path/to/SDL3/include -L/path/to/SDL3/lib -lSDL3
 ```
 
