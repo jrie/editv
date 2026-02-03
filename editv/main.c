@@ -378,7 +378,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result)
 void DrawMenu(float x, float y) {
 
     if (func_mode) {
-        SDL_RenderDebugText(renderer, x, y, "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'   undo: 'z'   paste: 'v'");
+        SDL_RenderDebugText(renderer, x, y, "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'   paste: 'v'");
     }
     else
     {
