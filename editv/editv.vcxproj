@@ -137,12 +137,10 @@
   <ItemGroup>
     <ClCompile Include="interface.c" />
     <ClCompile Include="main.c" />
-    <ClCompile Include="sfd.c" />
     <ClCompile Include="storage.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="interface.h" />
-    <ClInclude Include="sfd.h" />
     <ClInclude Include="storage.h" />
   </ItemGroup>
   <ItemGroup>
