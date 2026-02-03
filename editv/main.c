@@ -3,6 +3,7 @@
 #include <string.h>
 #include "storage.h"
 #include "sfd.h"
+#include "interface.h"
 
 
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
@@ -123,6 +124,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
         return SDL_APP_FAILURE;
     }
 
+    edv_init(window);
 
     //char* filename = "file.txt";
 
@@ -159,6 +161,20 @@ void New() {
     storage_free(str);
 
     str = storage_alloc(0);
+}
+
+void Paste() {
+    char* clip;
+    size_t clip_size = edv_clipboard(&clip);
+
+    storage_insert(str, cursor_pos(), clip, clip_size);
+    cursor_x += clip_size-1;
+
+    free(clip);
+}
+
+void Undo() {
+
 }
 
 void Save() {
@@ -250,8 +266,11 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             cursor_x = 0;
         }
         if (key == SDLK_BACKSPACE) {
-            storage_remove(str, cursor_pos() - 1, 1);
-            dec_cursor_x();
+            if (cursor_pos() != 0) {
+                storage_remove(str, cursor_pos() - 1, 1);
+                dec_cursor_x();
+            }
+
             
         }
         if (key == SDLK_LEFT) {
@@ -282,6 +301,12 @@ if (func_mode) {
 
     if (key == SDLK_N) { //new
         New();
+    }
+    if (key == SDLK_Z) { //undo
+        Undo();
+    }
+    if (key == SDLK_V) { //paste
+        Paste();
     }
     if (key == SDLK_Q) { //quit
         return SDL_APP_SUCCESS;
@@ -340,7 +365,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     ch = (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE) * scale;
 
     if (func_mode) {
-        SDL_RenderDebugText(renderer, cw, ch, "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'");
+        SDL_RenderDebugText(renderer, cw, ch, "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'   undo: 'z'   paste: 'v'");
     }
     else
     {
