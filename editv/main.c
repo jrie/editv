@@ -1,4 +1,5 @@
 #include "storage.h"
+#include <stdio.h>
 
 
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
@@ -68,7 +69,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 
     /* Create the window */
     if (!SDL_CreateWindowAndRenderer("editv", 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
-        SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
+        printf("Couldn't create window and renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
@@ -87,9 +88,9 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
         return SDL_APP_FAILURE;
     }
 
-    SDL_Log("\n\nBUFFER\n\n");
+    printf("\n\nBUFFER\n\n");
 
-    SDL_Log("\n");
+    printf("\n");
 
 
 
@@ -141,7 +142,6 @@ void Paste() {
 
     storage_insert(str, cursor_pos, clip, clip_size);
     cursor_pos += clip_size;
-
     SDL_free(clip);
 }
 
@@ -152,14 +152,14 @@ void Undo() {
 void SaveCallback(void* userdata, const char* const* filelist, int filter) {
 
     if (filelist[0] == NULL) {
-        SDL_Log("Save Cancelled\n");
+        printf("Save Cancelled\n");
         return;
     }
 
     size_t len = SDL_strlen(filelist[0]);
 
     if (len > 256) {
-        SDL_Log("File Path Too Long\n");
+        printf("File Path Too Long\n");
         return;
     }
     SDL_strlcpy(openFile, filelist[0], len+1);
@@ -177,7 +177,7 @@ void SaveCallback(void* userdata, const char* const* filelist, int filter) {
     SDL_CloseIO(stream);
 
     
-    SDL_Log("Saved As: '%s'\n", openFile);
+    printf("Saved As: '%s'\n", openFile);
 
     UpdateTitle();
 }
@@ -185,14 +185,14 @@ void SaveCallback(void* userdata, const char* const* filelist, int filter) {
 void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     if (filelist[0] == NULL) {
-        SDL_Log("Open Cancelled\n");
+        printf("Open Cancelled\n");
         return;
     }
 
     size_t len = SDL_strlen(filelist[0]);
 
     if (len > 256) {
-        SDL_Log("File Path Too Long\n");
+        printf("File Path Too Long\n");
         return;
     }
 
@@ -204,7 +204,7 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
     SDL_IOStream* stream = SDL_IOFromFile(openFile, "r");
 
     if (stream == NULL) {
-        SDL_Log("Failed to open file '%s'\n", openFile);
+        printf("Failed to open file '%s'\n", openFile);
         return;
     }
 
@@ -217,13 +217,13 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
     
     const char* buf = SDL_malloc(sizeof(char) * fsize);
     if (buf == NULL) {
-        SDL_Log("Failed to open file '%s'\n", openFile);
+        printf("Failed to open file '%s'\n", openFile);
         return;
     }
     size_t count = SDL_ReadIO(stream, buf, fsize);
 
     if (count == 0) {
-        SDL_Log("Failed to open file '%s'\n", openFile);
+        printf("Failed to open file '%s'\n", openFile);
         SDL_CloseIO(stream);
         SDL_free(buf);
         return;
@@ -235,7 +235,7 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     SDL_free(buf);
     if (s == NULL) {
-        SDL_Log("Failed to open file '%s'\n", openFile);
+        printf("Failed to open file '%s'\n", openFile);
         
         return;
     }
@@ -245,17 +245,17 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
     }
 
 
-    SDL_Log("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+    printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
 
     storage_realloc(s);
 
-    SDL_Log("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+    printf("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
 
 
 
     str = s;
 
-    SDL_Log("Opened: '%s'\n", openFile);
+    printf("Opened: '%s'\n", openFile);
     UpdateTitle();
 }
 

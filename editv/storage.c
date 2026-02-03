@@ -1,8 +1,7 @@
 #include "SDL3/SDL_stdinc.h"
 #include "SDL3/SDL_iostream.h"
-#include <SDL3/SDL_log.h>
 #include "storage.h"
-
+#include <stdio.h>
 
 
 void storage_free(Storage* str){
@@ -17,12 +16,12 @@ Storage* storage_alloc(size_t size){
     if (size == 0) {
         
         
-        SDL_Log("Cannot create buffer with size of 0\n");
+        printf("Cannot create buffer with size of 0\n");
         return NULL;
     }
 
     if (s == NULL) {
-        SDL_Log("Failed to create storage buffer\n");
+        printf("Failed to create storage buffer\n");
         return NULL;
     }
 
@@ -112,7 +111,7 @@ void storage_move_gap(Storage *str, size_t pos){
 
 int storage_grow(Storage *str){
 
-    SDL_Log("realloced\n");
+    printf("realloced\n");
     storage_move_gap(str, STR_END(str)); //move gap to front of storage
     
     str->buffer_size += BUFFER_GAP_SIZE;
@@ -132,7 +131,7 @@ int storage_grow(Storage *str){
 
 int storage_realloc(Storage *str){
 
-    SDL_Log("realloced\n");
+    printf("realloced\n");
     storage_move_gap(str, STR_END(str)); //move gap to front of storage
 
     str->buffer_size -= str->gap_size - BUFFER_GAP_SIZE;
@@ -315,7 +314,7 @@ void storage_replaceall(Storage *str, char *target, char* s){
 
 
 void print_buffer(Storage * str){
-    //SDL_Log("\'%.*s%.*s\'\n", str->front_idx + 1, str->buffer,str->buffer_size - str->gap_size - str->front_idx + 1 ,(str->buffer + str->front_idx + 1 + str->gap_size));
+    //printf("\'%.*s%.*s\'\n", str->front_idx + 1, str->buffer,str->buffer_size - str->gap_size - str->front_idx + 1 ,(str->buffer + str->front_idx + 1 + str->gap_size));
 
     int i = 0;
     char ch;
@@ -326,14 +325,14 @@ void print_buffer(Storage * str){
 }
 
 void print_buffer_separate(Storage * str){
-
-    puts("\nFRONT: \n\n");
+    
+    printf("\nFRONT: \n\n");
     for (size_t i = 0; i < str->front_size; i++)
     {
         putchar(str->buffer[i]);
     }
 
-    puts("\nBACK: \n\n");
+    printf("\nBACK: \n\n");
     for (size_t i = str->front_size+str->gap_size; i <= str->buffer_size; i++)
     {
         putchar(str->buffer[i]);
@@ -346,7 +345,7 @@ void print_lines(Storage *str){
     int l = 1;
     while (i < str->buffer_size)
     {
-        SDL_Log("%d: ",l++);
+        printf("%d: ",l++);
 
         while (i < str->buffer_size && str->buffer[i] != '\n')
         {
@@ -361,7 +360,7 @@ void print_lines(Storage *str){
                 i++;
             }
         }
-        SDL_Log("\n");
+        printf("\n");
         i++;
 
     }
