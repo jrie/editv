@@ -12,6 +12,13 @@ It is currently very basic, but supports everything needed in a text editor
 - Text Scrolling
 - Pasting from clipboard
 
+### In Development
+
+- Text selection
+- Copying
+- Undo/Redo
+- Text Finding/Pattern Matching
+
 
 ## Usage 
 
