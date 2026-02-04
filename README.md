@@ -35,10 +35,8 @@ To view options hold 'ctrl' and press a corresponding key
 
 ## Building
 
-The only dependency this project has is [SDL3](https://wiki.libsdl.org/SDL3), so that will need to be installed to build.
+To build this project you will need [SDL3](https://wiki.libsdl.org/SDL3) and [SDL3_ttf](https://wiki.libsdl.org/SDL3_ttf/FrontPage)
 
-
-#### On non-Windows platforms, define PORTABLE=1 to generate a non platform specific build that takes file path input through the console rather than a window  
 
 ### Visual Studio
 
@@ -55,7 +53,7 @@ Adding your SDL3 and SDL3_ttf installation's SDL3.lib and SDL3_ttf.lib files to 
 
 ### CMake
 
-Ensure [CMake](https://cmake.org/) is installed
+Ensure [CMake](https://cmake.org/) is installed, as well as the SDL packages into somewhere CMake can find
 
 In the source directory, create a folder named 'build'.  
 Then run these commands:  
