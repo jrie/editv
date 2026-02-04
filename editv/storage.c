@@ -56,6 +56,75 @@ Storage* storage_alloccopy(const char* string, size_t size) {
 
 }
 
+Storage* storage_fromfile(const char* path, int create) {
+
+    size_t len = SDL_strlen(path);
+    char* filemode;
+    if (create) {
+        filemode = "w";
+    }
+    else {
+        filemode = "r";
+    }
+
+    SDL_IOStream* stream = SDL_IOFromFile(path, filemode);
+
+    if (stream == NULL) {
+        goto failed_open;
+    }
+
+    SDL_SeekIO(stream, 0, SDL_IO_SEEK_END);
+
+    Sint64 fsize = SDL_TellIO(stream);
+
+    SDL_SeekIO(stream, 0, SDL_IO_SEEK_SET);
+
+    if (fsize == -1) {
+        SDL_CloseIO(stream);
+        goto failed_open;
+    }
+
+    char* buf = SDL_malloc(sizeof(char) * fsize + 1); //minimum of 1 byte allocated
+    if (buf == NULL) {
+        goto failed_open;
+    }
+    size_t count = SDL_ReadIO(stream, buf, fsize);
+
+    if (count == 0) {
+        //construct a 'file' buffer that is 1 element long and only contains an EOF
+        buf[0] = '\0';
+        count = 1;
+    }
+
+    SDL_CloseIO(stream);
+
+    unsigned char* loadFrom = buf;
+
+    unsigned char b0 = buf[0];
+    unsigned char b1 = buf[1];
+    unsigned char b2 = buf[2];
+
+    if (b0 == 0xEF && b1 == 0xBB && b2 == 0xBF) { //UTF BOM, strip
+        loadFrom += 3;
+        count -= 3;
+
+    }
+
+    Storage* s = storage_alloccopy(loadFrom, count);
+
+    SDL_free(buf);
+    if (s == NULL) {
+        goto failed_open;
+    }
+
+    printf("Opened file at '%s'\n", path);
+    return s;
+
+failed_open:
+    printf("Failed to open file '%s'\n", path);
+    return NULL;
+}
+
 //index storage ignoring the gap
 char storage_get(Storage *str, size_t index){
 

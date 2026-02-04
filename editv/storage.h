@@ -24,6 +24,7 @@ typedef struct Storage
 void storage_free(Storage* str);
 
 Storage* storage_alloc(size_t size);
+Storage* storage_fromfile(const char* path, int create);
 Storage* storage_alloccopy(const char* string, size_t size);
 
 //index storage ignoring the gap

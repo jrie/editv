@@ -11,6 +11,15 @@
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 
+#define EDV_VERSION_MAJOR 0
+#define EDV_VERSION_MINOR 2
+#define EDV_VERSION_PATCH 2
+
+#define STRINGIFY0(s) # s
+#define STRINGIFY(s) STRINGIFY0(s)
+
+#define VERSION STRINGIFY(EDV_VERSION_MAJOR)"."STRINGIFY(EDV_VERSION_MINOR)"."STRINGIFY(EDV_VERSION_PATCH)
+
 typedef struct
 {
     size_t index; //index into the buffer that this line starts
@@ -69,12 +78,126 @@ void dec_cursor_x() {
     cursor_pos--;
 }
 
+char* lastFilePath = NULL;
+
+char openFile[256];
+
+const char* const appname = "editv";
+
+void UpdateTitle() {
+
+    char buf[256];
+
+    printf("Open File is '%s' with length %zu\n", openFile, strlen(openFile));
+
+    if (SDL_strlen(openFile) != 0) {
+        SDL_snprintf(buf, 256, "%s - %s", appname, openFile);
+
+        SDL_SetWindowTitle(window, buf);
+    }
+    else
+    {
+        SDL_SetWindowTitle(window, appname);
+    }
+
+
+}
+
+#define KRED  "\x1B[31m"
+//returns 1 if continue, 0 if close
+int ParseArgs(int argc, char* argv[]) {
+
+
+    //flags specified
+    int c = 0; //create new file
+
+    for (size_t i = 1; i < argc; i++) //loop over args looking for flags
+    {
+        size_t len = strlen(argv[i]);
+        if (len == 0) continue;
+
+        if (argv[i][0] == '-') {
+            //single dash args
+
+            if (len < 2) goto invalid_args;//make sure theres enough space to not cause overflow
+
+            if (argv[i][1] == '-') {
+                //double dash args
+                if (argc > 2) { //can only pass version
+                    goto invalid_args;
+                }
+                if (!strcmp(argv[i], "--version"))
+                {
+                    SDL_Log("editv %s\n", VERSION);
+                    SDL_Log("Copyright (C) 2026 nimrag\n");
+                    return 0;
+                }
+            }
+            else if (!strcmp(argv[i], "-write") || !strcmp(argv[i], "-w")) { //write flag
+                w = 1;
+            }
+            else { //unknown flag
+                SDL_Log(KRED"Unknown Flag %s\n", argv[i]);
+                goto invalid_args;
+            }
+
+        }
+    }
+
+    for (size_t i = 1; i < argc; i++)
+    {
+        size_t len = strlen(argv[i]);
+        if (len == 0) continue;
+
+        if (argv[i][0] == '-') {
+            //flags arlready parsed
+            continue;
+        }
+        else { //try open a file
+
+            Storage* s = storage_fromfile(argv[i],w);
+
+            if (s == NULL) {
+                return 0;
+            }
+
+            SDL_strlcpy(openFile, argv[i], len+1);
+            lastFilePath = openFile;
+
+            //this should NEVER even have a chance to happen but better to be safe than accidentally leak memory
+            if (str) {
+                storage_free(str);
+            }
+
+
+            printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
+
+            str = s;
+
+            UpdateTitle();
+            return 1;
+        }
+
+
+    }
+
+    return 1; //normal operation, exit
+
+invalid_args:
+    SDL_Log(KRED"Invalid Arguments: ");
+    for (size_t i = 1; i < argc-1; i++)
+    {
+        SDL_Log(KRED"%s, ", argv[i]);
+    }
+    SDL_Log(KRED"%s", argv[argc-1]);
+    return 0;
+}
+
 //const char const default_font[] = "assets\\CascadiaMono-Regular.otf";
 
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 {
-    cfg = load_config();
 
     /* Create the window */
     if (!SDL_CreateWindowAndRenderer("editv", 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
@@ -88,6 +211,16 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
     }
 
 
+    if (argc > 1) {
+        if (!ParseArgs(argc, argv)) {
+            return SDL_APP_FAILURE;
+        }
+    }
+
+
+    cfg = load_config();
+
+
 
 
     
@@ -99,11 +232,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
     }
 
 
-
-    str = storage_alloc(1);
-    if (str == NULL) {
-        return SDL_APP_FAILURE;
+    if (str == NULL) { //wasnt already allocated by cmd arguments
+        str = storage_alloc(1);
+        if (str == NULL) {
+            return SDL_APP_FAILURE;
+        }
     }
+
 
     //fclose(f);
 
@@ -125,28 +260,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
     return SDL_APP_CONTINUE;
 }
 
-char *lastFilePath = NULL;
 
-char openFile[256];
-
-const char* const appname = "editv";
-
-void UpdateTitle() {
-
-    char buf[256];
-
-    if (SDL_strlen(openFile) != 0) {
-        SDL_snprintf(buf, 256, "%s - %s", appname, openFile);
-
-        SDL_SetWindowTitle(window, buf); 
-    }
-    else
-    {
-        SDL_SetWindowTitle(window, appname);
-    }
-
-
-}
 
 void New() {
     storage_free(str);
@@ -172,6 +286,16 @@ void Undo() {
 
 }
 
+void SaveTo(const char* path) {
+    SDL_IOStream* stream = SDL_IOFromFile(path, "w");
+
+    SDL_WriteIO(stream, str->buffer, str->front_size * sizeof(char));
+    SDL_WriteIO(stream, str->buffer + str->front_size + str->gap_size, str->buffer_size - str->front_size - str->gap_size * sizeof(char));
+
+    SDL_CloseIO(stream);
+}
+
+
 void SaveCallback(void* userdata, const char* const* filelist, int filter) {
 
     if (filelist[0] == NULL) {
@@ -189,21 +313,15 @@ void SaveCallback(void* userdata, const char* const* filelist, int filter) {
     lastFilePath = openFile;
 
     
+    SaveTo(openFile);
 
-    SDL_IOStream *stream = SDL_IOFromFile(openFile, "w");
-
-    SDL_WriteIO(stream, str->buffer, str->front_size * sizeof(char));
-    SDL_WriteIO(stream, str->buffer + str->front_size + str->gap_size, str->buffer_size - str->front_size - str->gap_size * sizeof(char));
-
-
-
-    SDL_CloseIO(stream);
 
     
     printf("Saved As: '%s'\n", openFile);
 
     UpdateTitle();
 }
+
 
 void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
@@ -212,68 +330,15 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
         return;
     }
 
-    size_t len = SDL_strlen(filelist[0]);
+    Storage *s = storage_fromfile(filelist[0], 0);
 
-    if (len > 256) {
-        printf("File Path Too Long\n");
+    if (s == NULL) {
         return;
     }
 
-    SDL_strlcpy(openFile, filelist[0], len+1);
+    SDL_strlcpy(openFile, filelist[0], strlen(filelist[0])+1);
     lastFilePath = openFile;
 
-
-
-    SDL_IOStream* stream = SDL_IOFromFile(openFile, "r");
-
-    if (stream == NULL) {
-        printf("Failed to open file '%s'\n", openFile);
-        return;
-    }
-
-    SDL_SeekIO(stream, 0, SDL_IO_SEEK_END);
-
-    Sint64 fsize = SDL_TellIO(stream);
-
-    SDL_SeekIO(stream, 0, SDL_IO_SEEK_SET);
-
-    
-    char* buf = SDL_malloc(sizeof(char) * fsize);
-    if (buf == NULL) {
-        printf("Failed to open file '%s'\n", openFile);
-        return;
-    }
-    size_t count = SDL_ReadIO(stream, buf, fsize);
-
-    if (count == 0) {
-        printf("Failed to open file '%s'\n", openFile);
-        SDL_CloseIO(stream);
-        SDL_free(buf);
-        return;
-    }
-
-    SDL_CloseIO(stream);
-
-    unsigned char *loadFrom = buf;
-
-    unsigned char b0 = buf[0];
-    unsigned char b1 = buf[1];
-    unsigned char b2 = buf[2];
-
-    if (b0 == 0xEF && b1 == 0xBB && b2 == 0xBF) { //UTF BOM, strip
-        loadFrom += 3;
-        count -= 3;
-        
-    }
-
-    Storage* s = storage_alloccopy(loadFrom, count);
-
-    SDL_free(buf);
-    if (s == NULL) {
-        printf("Failed to open file '%s'\n", openFile);
-        
-        return;
-    }
 
     if (str) {
         storage_free(str);
@@ -282,19 +347,17 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
 
-    storage_realloc(s);
-
-    printf("Realloc:\nBuffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
-
-
-
     str = s;
 
-    printf("Opened: '%s'\n", openFile);
     UpdateTitle();
 }
 
 void Save() {
+
+    if (strlen(openFile) != 0) {
+        SaveTo(openFile);
+        return;
+    }
 
     const SDL_DialogFileFilter filters[] = {
         { "All files",   "*" },
@@ -316,6 +379,7 @@ void Open() {
 
 
 bool func_mode = false;
+bool shift_down = false;
 
 /* This function runs when a new event (mouse input, keypresses, etc) occurs. */
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
@@ -355,32 +419,40 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             inc_cursor_y();
         }
 
-if (key == SDLK_LCTRL) {
-    SDL_StopTextInput(window);
-    func_mode = true;
-}
+        if (key == SDLK_LCTRL) {
+            SDL_StopTextInput(window);
+            func_mode = true;
+        }
+        if (key == SDLK_LSHIFT) {
+            shift_down = true;
+        }
 
-if (func_mode) {
-    if (key == SDLK_S) { //save
-        Save();
-    }
-    if (key == SDLK_O) { //open
-        Open();
-    }
+        if (func_mode) {
 
-    if (key == SDLK_N) { //new
-        New();
-    }
-    if (key == SDLK_Z) { //undo
-        Undo();
-    }
-    if (key == SDLK_V) { //paste
-        Paste();
-    }
-    if (key == SDLK_Q) { //quit
-        return SDL_APP_SUCCESS;
-    }
-}
+            if (key == SDLK_S) { //save
+                if (shift_down) {
+                    memset(openFile, 0, strlen(openFile)); //clear open file
+                    //UpdateTitle();
+                }
+                Save();
+            }
+            if (key == SDLK_O) { //open
+                Open();
+            }
+
+            if (key == SDLK_N) { //new
+                New();
+            }
+            if (key == SDLK_Z) { //undo
+                Undo();
+            }
+            if (key == SDLK_V) { //paste
+                Paste();
+            }
+            if (key == SDLK_Q) { //quit
+                return SDL_APP_SUCCESS;
+            }
+        }
     }
 
     if (event->type == SDL_EVENT_KEY_UP) {
@@ -389,6 +461,10 @@ if (func_mode) {
         if (key == SDLK_LCTRL) {
             SDL_StartTextInput(window);
             func_mode = false;
+        }
+
+        if (key == SDLK_LSHIFT) {
+            shift_down = false;
         }
     }
 
@@ -431,8 +507,9 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
     SDL_StopTextInput(window);
-    storage_free(str);
-    unload_config(cfg);
+    if (str) storage_free(str);
+    
+    if (cfg) unload_config(cfg);
 }
 
 void RenderTextAt(float x, float y, char* buf, SDL_Color color) {
@@ -462,18 +539,48 @@ void RenderTextAt(float x, float y, char* buf, SDL_Color color) {
 
 }
 
+char* menu_options[] = {
+    "open : 'o'",
+    "save : 's'",
+    "new : 'n'",
+    "quit : 'q'",
+    "paste : 'v'"
+};
 
+char* alt_menu_options[] = {
+    "save as : 's'",
+};
 
 void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {
 
-    char* menu = "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'   paste: 'v'";
+    //char* menu = "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'   paste: 'v'";
     char buf[256];
 
     char* textBuf;
 
     if (func_mode) {
         
-        textBuf = menu;
+        if (shift_down) {
+            int stride = SDL_snprintf(buf, 256, "FUNC(alt)");
+
+            for (size_t i = 0; i < sizeof(alt_menu_options) / sizeof(alt_menu_options[0]); i++)
+            {
+                stride += SDL_snprintf(buf + stride, 256 - stride, "   %s", alt_menu_options[i]);
+            }
+
+        }
+        else {
+            int stride = SDL_snprintf(buf, 256, "FUNC");
+
+            for (size_t i = 0; i < sizeof(menu_options) / sizeof(menu_options[0]); i++)
+            {
+                stride += SDL_snprintf(buf + stride, 256 - stride, "   %s",menu_options[i]);
+            }
+        }
+
+
+
+        textBuf = buf;
         //SDL_RenderDebugText(renderer, x, y, "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'   paste: 'v'");
     }
     else

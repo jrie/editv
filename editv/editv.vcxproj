@@ -117,7 +117,7 @@
       <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>C:\SDL\lib\x86\SDL3.lib;C:\SDL_ttf\lib\x86\SDL3_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -149,7 +149,7 @@
       <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>C:\SDL\lib\x64\SDL3.lib;C:\SDL_ttf\lib\x64\SDL3_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
