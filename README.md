@@ -6,7 +6,7 @@ This a project with minimal dependencies, Graphics are rendered with [SDL3](http
 It is currently very basic, but supports everything needed in a text editor
 
 
-![screenshot](https://github.com/nimrag-b/editv/blob/main/Screenshot%202026-02-03%20204249.png)
+![screenshot](https://github.com/nimrag-b/editv/blob/main/editvss.png)
 
 ### Features
 
