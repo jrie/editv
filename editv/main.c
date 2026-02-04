@@ -1,6 +1,6 @@
 #include "storage.h"
 #include <stdio.h>
-
+#include "config.h"
 
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
@@ -26,6 +26,7 @@ static TTF_Font* font = NULL;
 extern unsigned char tiny_ttf[];
 extern unsigned int tiny_ttf_len;
 
+edv_config* cfg;
 Storage* str;
 //size_t Cursor = 0; //location in file of cursor
 
@@ -68,11 +69,12 @@ void dec_cursor_x() {
     cursor_pos--;
 }
 
-const char const default_font[] = "assets\\CascadiaMono-Regular.otf";
+//const char const default_font[] = "assets\\CascadiaMono-Regular.otf";
 
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 {
+    cfg = load_config();
 
     /* Create the window */
     if (!SDL_CreateWindowAndRenderer("editv", 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
@@ -85,13 +87,17 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
         return SDL_APP_FAILURE;
     }
 
+
+
+
     
     /* Open the font */
-    font = TTF_OpenFont(default_font, 18);
+    font = TTF_OpenFont(cfg->default_font, cfg->font_size);
     if (!font) {
         SDL_Log("Couldn't open font: %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+
 
 
     str = storage_alloc(1);
@@ -410,7 +416,7 @@ void Draw();
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
 
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(renderer, cfg->background_color.r, cfg->background_color.g, cfg->background_color.b, cfg->background_color.a);
     SDL_RenderClear(renderer);
 
     Draw();
@@ -426,6 +432,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
     SDL_StopTextInput(window);
     storage_free(str);
+    unload_config(cfg);
 }
 
 void RenderTextAt(float x, float y, char* buf, SDL_Color color) {
@@ -479,7 +486,7 @@ void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {
     }
 
 
-    SDL_Color color = { 255, 255, 255, SDL_ALPHA_OPAQUE };
+    SDL_Color color = { cfg->menu_color.r, cfg->menu_color.g, cfg->menu_color.b, SDL_ALPHA_OPAQUE };
 
     RenderTextAt(x, y, textBuf, color);
 }
@@ -598,7 +605,7 @@ void Draw() {
         //use debug render text for now
         //SDL_RenderDebugText(renderer, x, y, buf);
 
-        SDL_Color color = { 255, 255, 255, SDL_ALPHA_OPAQUE };
+        SDL_Color color = { cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
         SDL_Surface* text;
 
 
@@ -764,9 +771,9 @@ void Draw() {
             SDL_snprintf(buf, buflen, "%zu", line_start+i);
 
 
-            SDL_Color lineColor = { 155, 155, 155, SDL_ALPHA_OPAQUE };
+            SDL_Color lineColor = { cfg->line_number_color.r,cfg->line_number_color.g, cfg->line_number_color.b, SDL_ALPHA_OPAQUE };
             if (cursor_y == line_start + i) {
-                lineColor = (SDL_Color){ 255, 255, 255, SDL_ALPHA_OPAQUE };
+                lineColor = (SDL_Color){ cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
             }
 
             RenderTextAt(cw, yorigin + line_gap * i, buf, lineColor);

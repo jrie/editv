@@ -155,10 +155,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="config.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="storage.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="config.h" />
     <ClInclude Include="storage.h" />
   </ItemGroup>
   <ItemGroup>
