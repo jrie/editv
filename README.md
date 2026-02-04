@@ -71,7 +71,7 @@ Ensure [GCC](https://gcc.gnu.org/) is installed
 
 In the source directory, run this command to build with GCC, inserting your paths to SDL and SDL_ttf
 ```
-gcc editv/main.c editv/storage.c -o editv/editv -I/path/to/SDL3/include -L/path/to/SDL3/lib -I/path/to/SDL3_ttf/include -L/path/to/SDL3_ttf/lib -lSDL3 -lSDL3_ttf
+gcc editv/main.c editv/storage.c editv/config.c -o editv/editv -I/path/to/SDL3/include -L/path/to/SDL3/lib -I/path/to/SDL3_ttf/include -L/path/to/SDL3_ttf/lib -lSDL3 -lSDL3_ttf
 ```
 
 
@@ -79,6 +79,6 @@ gcc editv/main.c editv/storage.c -o editv/editv -I/path/to/SDL3/include -L/path/
 
 An example build command for Windows where SDL and SDL_ttf are in C:/SDL and C:/SDL_ttf would look like this
 ```
-gcc editv/main.c editv/storage.c -o editv/editv -IC:\SDL\include -LC:\SDL\lib\x64\SDL3.lib -IC:\SDL3_ttf\include -LC:\SDL_ttf\lib\x64\SDL3_ttf.lib -lSDL3 -lSDL3_ttf
+gcc editv/main.c editv/storage.c editv/config.c -o editv/editv -IC:\SDL\include -LC:\SDL\lib\x64\SDL3.lib -IC:\SDL3_ttf\include -LC:\SDL_ttf\lib\x64\SDL3_ttf.lib -lSDL3 -lSDL3_ttf
 ```
 

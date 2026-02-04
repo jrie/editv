@@ -10,6 +10,7 @@ project(
 set(SOURCE_FILES
   editv/main.c
   editv/storage.c
+  editv/config.c
 )
 
 add_compile_options(
