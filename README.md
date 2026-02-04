@@ -2,7 +2,7 @@
 A minimal C based text editor
 
 This a project with minimal dependencies, Graphics are rendered with [SDL3](https://wiki.libsdl.org/SDL3) and everything else is pure C magic.  
-It is currently very basic, but supports everything needed in a text editor
+It is currently very basic, but supports all the basic operations needed in a text editor
 
 
 ![screenshot](https://github.com/nimrag-b/editv/blob/main/editvss.png)
