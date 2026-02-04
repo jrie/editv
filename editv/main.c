@@ -12,13 +12,17 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 
 #define EDV_VERSION_MAJOR 0
-#define EDV_VERSION_MINOR 2
+#define EDV_VERSION_MINOR 1
 #define EDV_VERSION_PATCH 2
 
 #define STRINGIFY0(s) # s
 #define STRINGIFY(s) STRINGIFY0(s)
 
 #define VERSION STRINGIFY(EDV_VERSION_MAJOR)"."STRINGIFY(EDV_VERSION_MINOR)"."STRINGIFY(EDV_VERSION_PATCH)
+
+
+
+const char* const appname = "editv "VERSION;
 
 typedef struct
 {
@@ -82,7 +86,6 @@ char* lastFilePath = NULL;
 
 char openFile[256];
 
-const char* const appname = "editv";
 
 void UpdateTitle() {
 
@@ -103,7 +106,7 @@ void UpdateTitle() {
 
 }
 
-#define KRED  "\x1B[31m"
+//#define KRED  "\x1B[31m"
 //returns 1 if continue, 0 if close
 int ParseArgs(int argc, char* argv[]) {
 
@@ -117,27 +120,45 @@ int ParseArgs(int argc, char* argv[]) {
         if (len == 0) continue;
 
         if (argv[i][0] == '-') {
-            //single dash args
+
 
             if (len < 2) goto invalid_args;//make sure theres enough space to not cause overflow
 
-            if (argv[i][1] == '-') {
-                //double dash args
-                if (argc > 2) { //can only pass version
-                    goto invalid_args;
-                }
-                if (!strcmp(argv[i], "--version"))
-                {
-                    SDL_Log("editv %s\n", VERSION);
-                    SDL_Log("Copyright (C) 2026 nimrag\n");
-                    return 0;
-                }
+            //double dash args
+
+            if (!strcmp(argv[i], "--version"))
+            {
+                SDL_Log("editv %s\n", VERSION);
+                SDL_Log("Copyright (C) 2026 nimrag\n");
+                return 0;
             }
+            else if (!strcmp(argv[i], "--help"))
+            {
+                SDL_Log("Usage\n\n");
+                SDL_Log("\teditv\n\n");
+
+                SDL_Log("Opens with no open file.\n\n");
+
+                SDL_Log("\teditv [OPTIONS] <path>\n\n");
+
+                SDL_Log("Opens with the file at <path> loaded.\n\n");
+
+                SDL_Log("Options\n\n");
+                SDL_Log("\t-write, -w <path>       = Write/create a new file at <path>\n");
+
+                SDL_Log("\n");
+
+                SDL_Log("\t--version               = Print current version and exit\n");
+                SDL_Log("\t--help                  = Print usage information and exit\n");
+                return 0;
+            }
+
+            //single dash args
             else if (!strcmp(argv[i], "-write") || !strcmp(argv[i], "-w")) { //write flag
                 w = 1;
             }
             else { //unknown flag
-                SDL_Log(KRED"Unknown Flag %s\n", argv[i]);
+                SDL_Log("Unknown Flag %s\n", argv[i]);
                 goto invalid_args;
             }
 
@@ -174,7 +195,7 @@ int ParseArgs(int argc, char* argv[]) {
 
             str = s;
 
-            UpdateTitle();
+
             return 1;
         }
 
@@ -184,12 +205,12 @@ int ParseArgs(int argc, char* argv[]) {
     return 1; //normal operation, exit
 
 invalid_args:
-    SDL_Log(KRED"Invalid Arguments: ");
+    SDL_Log("Invalid Arguments: ");
     for (size_t i = 1; i < argc-1; i++)
     {
-        SDL_Log(KRED"%s, ", argv[i]);
+        SDL_Log("%s, ", argv[i]);
     }
-    SDL_Log(KRED"%s", argv[argc-1]);
+    SDL_Log("%s", argv[argc-1]);
     return 0;
 }
 
@@ -198,9 +219,13 @@ invalid_args:
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 {
-
+    if (argc > 1) {
+        if (!ParseArgs(argc, argv)) {
+            return SDL_APP_FAILURE;
+        }
+    }
     /* Create the window */
-    if (!SDL_CreateWindowAndRenderer("editv", 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer(appname, 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
         printf("Couldn't create window and renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
@@ -211,12 +236,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
     }
 
 
-    if (argc > 1) {
-        if (!ParseArgs(argc, argv)) {
-            return SDL_APP_FAILURE;
-        }
-    }
-
+    //call in case a file was loaded from the cmdline
+    UpdateTitle();
 
     cfg = load_config();
 
