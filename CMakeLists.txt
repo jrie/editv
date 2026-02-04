@@ -16,7 +16,7 @@ add_compile_options(
   -Wall
 )
 
-file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY editv/assets DESTINATION ${CMAKE_BINARY_DIR})
 
 find_package(SDL3 REQUIRED)
 find_package(SDL3_ttf REQUIRED)

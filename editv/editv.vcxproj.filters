@@ -28,9 +28,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="file.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <Font Include="assets\CascadiaMono-Regular.otf" />
   </ItemGroup>
 </Project>

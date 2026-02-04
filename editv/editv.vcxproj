@@ -162,12 +162,6 @@
     <ClInclude Include="storage.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="file.txt">
-      <DeploymentContent>false</DeploymentContent>
-      <FileType>Text</FileType>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <Font Include="assets\CascadiaMono-Regular.otf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
