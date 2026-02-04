@@ -1,8 +1,7 @@
 # editv
 A minimal C based text editor
 
-This a project with minimal dependencies, Graphics are rendered with [SDL3](https://wiki.libsdl.org/SDL3) and everything else is either pure C or platform dependant.
-
+This a project with minimal dependencies, Graphics are rendered with [SDL3](https://wiki.libsdl.org/SDL3) and everything else is pure C magic.  
 It is currently very basic, but supports everything needed in a text editor
 
 
