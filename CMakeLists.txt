@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(
   editv 
-  VERSION 0.0.1
+  VERSION 0.0.4
   DESCRIPTION "A minimal C based Text Editor"
   LANGUAGES C
 )
@@ -24,6 +24,8 @@ find_package(SDL3_ttf REQUIRED)
 
 
 add_executable(editv ${SOURCE_FILES})
+
+target_link_options(editv PRIVATE -mwindows)
 
 target_include_directories(editv PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/editv)
 

@@ -13,7 +13,7 @@
 
 #define EDV_VERSION_MAJOR 0
 #define EDV_VERSION_MINOR 1
-#define EDV_VERSION_PATCH 3
+#define EDV_VERSION_PATCH 4
 
 #define STRINGIFY0(s) # s
 #define STRINGIFY(s) STRINGIFY0(s)
@@ -36,6 +36,11 @@ static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
 static SDL_Texture* texture = NULL;
 static TTF_Font* font = NULL;
+
+
+bool func_mode = false;
+bool shift_down = false;
+bool unsaved_changes = false;
 
 
 extern unsigned char tiny_ttf[];
@@ -340,6 +345,8 @@ void SaveTo(const char* path) {
     SDL_WriteIO(stream, str->buffer + str->front_size + str->gap_size, str->buffer_size - str->front_size - str->gap_size * sizeof(char));
 
     SDL_CloseIO(stream);
+
+    unsaved_changes = false;
 }
 
 
@@ -425,8 +432,7 @@ void Open() {
 }
 
 
-bool func_mode = false;
-bool shift_down = false;
+
 
 /* This function runs when a new event (mouse input, keypresses, etc) occurs. */
 SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
@@ -441,14 +447,13 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         if (key == SDLK_RETURN) {
             storage_insert_c(str, '\n', cursor_pos);
             inc_cursor_x();
-            //inc_cursor_y();
-            //cursor_x = 0;
+            unsaved_changes = true;
         }
         if (key == SDLK_BACKSPACE) {
             if (cursor_pos != 0) {
                 dec_cursor_x();
                 storage_remove(str, cursor_pos, 1);
-                
+                unsaved_changes = true;
             }
 
             
@@ -520,6 +525,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         const char* text = event->text.text;
 
         storage_insert(str, cursor_pos, text, SDL_strlen(text));
+        unsaved_changes = true;
 
         for (size_t i = 0; i < SDL_strlen(text); i++)
         {
@@ -700,7 +706,11 @@ void Draw() {
     int max_y = (int)((h - (yorigin + line_gap)) / (ch));
 
 
-
+    if (unsaved_changes) {
+        char astk[] = "*";
+        SDL_Color color = { cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
+        RenderTextAt(w-ch, ch, astk, color);
+    }
 
 
     int curLine = (int)line_start; //line offset into array, we need this for proper cursor placement. cached so that we dont have to loop the entire array every time we render
