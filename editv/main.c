@@ -13,7 +13,7 @@
 
 #define EDV_VERSION_MAJOR 0
 #define EDV_VERSION_MINOR 1
-#define EDV_VERSION_PATCH 2
+#define EDV_VERSION_PATCH 3
 
 #define STRINGIFY0(s) # s
 #define STRINGIFY(s) STRINGIFY0(s)
@@ -66,7 +66,7 @@ void dec_cursor_y() {
 
 void inc_cursor_x() {
 
-    if (cursor_pos >= STR_END(str) - 1) {
+    if (cursor_pos >= STR_END(str) ) {
         return;
     }
 
@@ -254,7 +254,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 
 
     if (str == NULL) { //wasnt already allocated by cmd arguments
-        str = storage_alloc(1);
+        str = storage_alloc(0);
         if (str == NULL) {
             return SDL_APP_FAILURE;
         }
@@ -286,7 +286,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 void New() {
     storage_free(str);
 
-    str = storage_alloc(1);
+    str = storage_alloc(0);
 
     openFile[0] = 0;
     UpdateTitle();
@@ -680,7 +680,7 @@ void Draw() {
 
 
     //loop over every character in buffer
-    while (index < STR_END(str)) {
+    while (index <= STR_END(str)) {
 
 
         //store current line index
@@ -692,7 +692,7 @@ void Draw() {
         //load line into buffer
         int l = 0;
 
-        while (l < buflen && index < STR_END(str))
+        while (l < buflen && index <= STR_END(str))
         {
             char c = storage_get(str, index);
 

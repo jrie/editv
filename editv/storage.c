@@ -13,12 +13,11 @@ Storage* storage_alloc(size_t size){
 
     Storage *s = SDL_malloc(sizeof(Storage));
 
-    if (size == 0) {
-        
-        
-        printf("Cannot create buffer with size of 0\n");
-        return NULL;
-    }
+    //if (size == 0) {
+
+    //    printf("Cannot create buffer with size of 0\n");
+    //    return NULL;
+    //}
 
     if (s == NULL) {
         printf("Failed to create storage buffer\n");
@@ -40,7 +39,7 @@ Storage* storage_alloc(size_t size){
     s->buffer = tmp;
 
     s->buffer[s->buffer_size] = 0;
-    s->buffer[0] = '\n';
+    //s->buffer[s->front_size] = '\0';
     return s;
 
 }
