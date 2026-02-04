@@ -26,6 +26,7 @@ const char* const appname = "editv "VERSION;
 
 typedef struct
 {
+    size_t number;
     size_t index; //index into the buffer that this line starts
     size_t length;
 } line_t;
@@ -35,6 +36,7 @@ static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
 static SDL_Texture* texture = NULL;
 static TTF_Font* font = NULL;
+
 
 extern unsigned char tiny_ttf[];
 extern unsigned int tiny_ttf_len;
@@ -52,6 +54,21 @@ size_t line_start = 0;
 
 size_t cursor_pos = 0;
 int y_offset = 0;
+
+
+int show_line_numbers = 1;
+int wrap_lines = 1;
+int cache_lines = 0; //CURRENTLY BROKEN, DO NOT ENABLE
+
+typedef struct {
+    line_t line;
+    SDL_Texture* tex;
+    int filled;
+}cached_line;
+
+cached_line cached_lines[256];
+size_t cached_line_count = 0;
+
 
 void inc_cursor_y() {
 
@@ -229,6 +246,10 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
         printf("Couldn't create window and renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+
+    SDL_SetRenderVSync(renderer, 1);
+
+
 
     if (!TTF_Init()) {
         SDL_Log("Couldn't initialize SDL_ttf: %s\n", SDL_GetError());
@@ -540,7 +561,7 @@ void RenderTextAt(float x, float y, char* buf, SDL_Color color) {
     text = TTF_RenderText_Blended(font, buf, 0, color);
     if (text) {
         texture = SDL_CreateTextureFromSurface(renderer, text);
-        SDL_DestroySurface(text);
+        
 
         if (texture != NULL) {
             SDL_FRect rect;
@@ -557,6 +578,8 @@ void RenderTextAt(float x, float y, char* buf, SDL_Color color) {
 
         }
     }
+    //always ensure that no matter whar we free this so we dont leak
+    SDL_DestroySurface(text);
 
 }
 
@@ -619,7 +642,25 @@ void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {
     RenderTextAt(x, y, textBuf, color);
 }
 
-int show_line_numbers = 1;
+
+
+
+SDL_Texture* CacheLine(line_t line, char* buf, SDL_Color color) {
+
+    SDL_Surface* text;
+    /* Create the text */
+    text = TTF_RenderText_Blended(font, buf, 0, color);
+    if (text) {
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, text);
+        cached_lines[line.number - line_start] = (cached_line){ line,texture,1 };
+        //always ensure that no matter whar we free this so we dont leak
+        SDL_DestroySurface(text);
+        return texture;
+    }
+    //always ensure that no matter whar we free this so we dont leak
+    SDL_DestroySurface(text);
+    return NULL;
+}
 
 void Draw() {
     w = 0;
@@ -686,84 +727,95 @@ void Draw() {
         //store current line index
 
         line_t linedata;
-        linedata.index = index;
 
-
-        //load line into buffer
-        int l = 0;
-
-        while (l < buflen && index <= STR_END(str))
-        {
-            char c = storage_get(str, index);
-
-
-            //if (index == cursor_pos) {
-
-            //    cursor_y = curLine;
-            //    cursor_x = l;
-
-            //}
-
-
-
-            if (c == '\n') { //hit a newline
-                index++; //move index over the newline
-                break;
+        //current line is not cached
+        if (!cache_lines || (!cached_lines[curLine - line_start].filled || cached_lines[curLine - line_start].line.number != curLine)) {
+            if (cached_lines[curLine - line_start].tex != NULL) {
+                SDL_DestroyTexture(cached_lines[curLine - line_start].tex);//so we dont leak
             }
 
 
+            linedata.index = index;
+            linedata.number = curLine;
 
-            //copy char and increase line length
-            buf[l++] = c;
+            //load line into buffer
+            int l = 0;
 
+            while (l < buflen && index <= STR_END(str))
+            {
+                char c = storage_get(str, index);
 
-
-            index++; //increment the index to the next char
-
-            size_t measured;
-            if (TTF_MeasureString(font, buf, l, w-xorigin-cw, NULL, &measured)) {
-                if (measured < l) {
+                if (c == '\n') { //hit a newline
+                    index++; //move index over the newline
                     break;
                 }
+
+                //copy char and increase line length
+                buf[l++] = c;
+
+                index++; //increment the index to the next char
+
+                if (wrap_lines) {
+                    size_t measured;
+                    if (TTF_MeasureString(font, buf, l, w - xorigin - cw, NULL, &measured)) {
+                        if (measured < l) {
+                            curLine--;
+                            break;
+                        }
+                    }
+                }
+
             }
-        }
 
-        buf[l] = '\0'; //null terminate buffer
-
-        //use debug render text for now
-        //SDL_RenderDebugText(renderer, x, y, buf);
-
-        SDL_Color color = { cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
-        SDL_Surface* text;
+            buf[l] = '\0'; //null terminate buffer
 
 
+            linedata.length = l;
+            SDL_Color color = { cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
 
-        /* Create the text */
-        text = TTF_RenderText_Blended(font, buf, 0, color);
-        if (text) {
-            texture = SDL_CreateTextureFromSurface(renderer, text);
-            SDL_DestroySurface(text);
+            SDL_Texture* tex = CacheLine(linedata, buf, color);
 
-            if (texture != NULL) {
+            if (tex != NULL) {
                 SDL_FRect rect;
                 rect.x = x;
                 rect.y = y;
 
-                rect.h = texture->h;
-                rect.w = texture->w;
+                rect.h = tex->h;
+                rect.w = tex->w;
 
 
-                SDL_RenderTexture(renderer, texture, NULL, &rect);
+                SDL_RenderTexture(renderer, tex, NULL, &rect);
 
-                SDL_DestroyTexture(texture);
+
+
+            }
+        }
+        else
+        {
+            cached_line ln = cached_lines[curLine - line_start];
+            linedata = ln.line;
+
+            index += ln.line.length;
+
+            SDL_Texture* tex = ln.tex;
+
+            if (tex != NULL) {
+                SDL_FRect rect;
+                rect.x = x;
+                rect.y = y;
+
+                rect.h = tex->h;
+                rect.w = tex->w;
+
+
+                SDL_RenderTexture(renderer, tex, NULL, &rect);
+
+
 
             }
         }
 
 
-
-
-        linedata.length = l;
 
         lines[line_count++] = linedata;
 
@@ -893,22 +945,29 @@ void Draw() {
 
 
     if (show_line_numbers) {
-
+        int last = -1;
         for (size_t i = 0; i < line_count; i++)
         {
-            SDL_snprintf(buf, buflen, "%zu", line_start+i);
+            if (lines[i].number != last) { //dont draw multiple line numbers for wrapped lines. perhaps make this an option in the future
+                SDL_snprintf(buf, buflen, "%zu", lines[i].number);
+
+                last = lines[i].number;
 
 
-            SDL_Color lineColor = { cfg->line_number_color.r,cfg->line_number_color.g, cfg->line_number_color.b, SDL_ALPHA_OPAQUE };
-            if (cursor_y == line_start + i) {
-                lineColor = (SDL_Color){ cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
+                SDL_Color lineColor = { cfg->line_number_color.r,cfg->line_number_color.g, cfg->line_number_color.b, SDL_ALPHA_OPAQUE };
+                if (cursor_y == line_start + i) {
+                    lineColor = (SDL_Color){ cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
+                }
+
+                RenderTextAt(cw, yorigin + line_gap * i, buf, lineColor);
             }
 
-            RenderTextAt(cw, yorigin + line_gap * i, buf, lineColor);
         }
 
     }
 
+
+    if(cache_lines) cached_lines[cursor_y - line_start].filled = 0; //dont cache the line that the cursor is on
 
     //draw cursor
 
