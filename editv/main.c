@@ -297,8 +297,8 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 void Save() {
 
     const SDL_DialogFileFilter filters[] = {
-        { "Text files",  "txt" },
-        { "All files",   "*" }
+        { "All files",   "*" },
+        { "Text files",  "txt" }
     };
 
     SDL_ShowSaveFileDialog(SaveCallback, NULL, window, filters, 2, lastFilePath);
@@ -307,8 +307,8 @@ void Save() {
 void Open() {
 
     const SDL_DialogFileFilter filters[] = {
-    { "Text files",  "txt" },
-    { "All files",   "*" }
+        { "All files",   "*" },
+        { "Text files",  "txt" }
     };
 
     SDL_ShowOpenFileDialog(OpenCallback, NULL, window, filters, 2, lastFilePath,0);
