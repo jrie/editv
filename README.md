@@ -49,9 +49,9 @@ Open and build editv.sln
 
 #### If any errors occur, you can manually link SDL by following thse steps:  
 
-Adding your SDL3 installation's include folder to Project->Properties->editv Properties->C/C++->Additional Include Directories  
+Adding your SDL3 and SDL3_ttf installation's include folders to Project->Properties->editv Properties->C/C++->Additional Include Directories  
 
-Adding your SDL3 installation's SDL3.lib file to Project->Properties->editv Properties->Linker->Additional Dependencies (note this has to be the actual SDL3.lib file, and not the lib folder)  
+Adding your SDL3 and SDL3_ttf installation's SDL3.lib and SDL3_ttf.lib files to Project->Properties->editv Properties->Linker->Additional Dependencies (note this has to be the actual SDL3.lib file, and not the lib folder)  
 
 
 ### CMake
@@ -70,8 +70,16 @@ cmake --build .
 
 Ensure [GCC](https://gcc.gnu.org/) is installed
 
-In the source directory, run this command to build with GCC  
+In the source directory, run this command to build with GCC, inserting your paths to SDL and SDL_ttf
 ```
-gcc editv/main.c editv/storage.c -o build/editv -I/path/to/SDL3/include -L/path/to/SDL3/lib -lSDL3
+gcc editv/main.c editv/storage.c -o editv -I/path/to/SDL3/include -L/path/to/SDL3/lib -I/path/to/SDL3_ttf/include -L/path/to/SDL3_ttf/lib -lSDL3 -lSDL3_ttf
+```
+
+
+
+
+An example build command for Windows where SDL and SDL_ttf are in C:/SDL and C:/SDL_ttf would look like this
+```
+gcc editv/main.c editv/storage.c -o editv -IC:\SDL\include -LC:\SDL\lib\x64\SDL3.lib -IC:\SDL3_ttf\include -LC:\SDL_ttf\lib\x64\SDL3_ttf.lib -lSDL3 -lSDL3_ttf
 ```
 
