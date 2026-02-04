@@ -329,7 +329,12 @@ void Undo() {
 }
 
 void SaveTo(const char* path) {
-    SDL_IOStream* stream = SDL_IOFromFile(path, "w");
+    SDL_IOStream* stream = SDL_IOFromFile(path, "w,ccs=UTF-8");
+
+    const char UTF_BOM[] = { 0xEF ,0xBB,0xBF };
+
+
+    //SDL_WriteIO(stream, UTF_BOM, 3);
 
     SDL_WriteIO(stream, str->buffer, str->front_size * sizeof(char));
     SDL_WriteIO(stream, str->buffer + str->front_size + str->gap_size, str->buffer_size - str->front_size - str->gap_size * sizeof(char));
