@@ -6,6 +6,29 @@
 #define STR_END(str) str->buffer_size - str->gap_size
 
 
+typedef enum StorageCommandType {
+    STORAGE_INSERT,
+    STORAGE_REMOVE
+} StorageCommandType;
+
+typedef enum StorageSaveMode {
+    STR_NONE,
+    STR_UNDO,
+    STR_REDO
+} StorageSaveMode;
+
+typedef struct StorageCommand {
+    StorageCommandType cmd;
+    char* data;
+    int length;
+    int index;
+
+    //linked list node storage
+    struct StorageCommand* next;
+    struct StorageCommand* prev;
+
+} StorageCommand;
+
 
 typedef struct Storage
 {
@@ -17,8 +40,17 @@ typedef struct Storage
 
     size_t gap_size;
 
+    StorageCommand* first;
+    StorageCommand *last;
+    size_t StoredCommands;
+
 } Storage;
 
+
+
+
+
+#define COMMAND_HISTORY_MAX 1000 //can store 1000 changes until shit gets weird
 
 
 void storage_free(Storage* str);
@@ -39,11 +71,13 @@ int storage_grow(Storage* str);
 
 int storage_realloc(Storage* str);
 
-int storage_insert_c(Storage* str, char c, size_t pos);
-int storage_insert(Storage* str, size_t pos, const char* s, size_t length);
+int storage_insert_c(Storage* str, char c, size_t pos, StorageSaveMode savemode);
+int storage_insert(Storage* str, size_t pos, const char* s, size_t length, StorageSaveMode savemode);
 
 
-int storage_remove(Storage* str, size_t pos, size_t count);
+int storage_remove(Storage* str, size_t pos, size_t count, StorageSaveMode savemode);
+
+int storage_undo(Storage* str);
 
 
 int storage_overwrite(Storage* str, size_t pos, char* s, size_t length);

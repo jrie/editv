@@ -4,6 +4,82 @@
 #include <stdio.h>
 
 
+static void strcmd_trim(Storage* str) {
+
+    StorageCommand* first = str->first;
+    if (first == NULL) return;
+
+    str->first = first->next;
+
+    if (str->StoredCommands == 1) {
+        str->last = NULL;
+    }
+
+
+    SDL_free(first->data);
+    SDL_free(first);
+
+    str->StoredCommands--;
+}
+
+static void strcmd_pop(Storage* str) {
+
+    StorageCommand* top = str->last;
+    if (top == NULL) return;
+
+
+    str->last = top->prev;
+
+    if (str->StoredCommands == 1) {
+        str->first = NULL;
+    }
+
+    SDL_free(top->data);
+    SDL_free(top);
+
+    str->StoredCommands--;
+}
+
+
+static void strcmd_add(Storage *str, StorageCommandType type, const char* data, size_t index, size_t length, StorageSaveMode savemode) {
+
+    if (savemode == STR_NONE) return;
+
+    StorageCommand *cmd = SDL_malloc(sizeof(StorageCommand));
+
+    char* txt = SDL_malloc(length * sizeof(char));
+
+    SDL_memcpy(txt, data, length * sizeof(char));
+
+    cmd->data = txt;
+    cmd->cmd = type;
+    cmd->prev = str->last;
+    cmd->next = NULL;
+    cmd->index = index;
+    cmd->length = length;
+
+    if (str->first == NULL) {
+        str->first = cmd;
+    }
+    else
+    {
+        str->last->next = cmd;
+
+    }
+
+    str->last = cmd;
+
+    str->StoredCommands++;
+
+    if (str->StoredCommands > COMMAND_HISTORY_MAX) {
+        strcmd_trim(str);
+    }
+}
+
+
+
+
+
 void storage_free(Storage* str){
     SDL_free(str->buffer);
     SDL_free(str);
@@ -39,6 +115,10 @@ Storage* storage_alloc(size_t size){
     s->buffer = tmp;
 
     s->buffer[s->buffer_size] = 0;
+
+    s->first = NULL;
+    s->last = NULL;
+    s->StoredCommands = 0;
     //s->buffer[s->front_size] = '\0';
     return s;
 
@@ -216,7 +296,9 @@ int storage_realloc(Storage *str){
     return 1;
 }
 
-int storage_insert_c(Storage * str, char c, size_t pos){
+
+
+int storage_insert_c(Storage * str, char c, size_t pos, StorageSaveMode savemode){
 
     
     if(pos < 0 || pos > STR_END(str)){
@@ -237,12 +319,12 @@ int storage_insert_c(Storage * str, char c, size_t pos){
     str->front_size++;
     str->gap_size--;
 
-    
+    strcmd_add(str, STORAGE_INSERT, &c, pos, 1, savemode);
 
     return 1;
 }
 
-int storage_insert(Storage * str, size_t pos,const char *s, size_t length){
+int storage_insert(Storage * str, size_t pos,const char *s, size_t length, StorageSaveMode savemode){
 
     if(s[length-1] == 0){ // strip null terminator
         length--;
@@ -270,11 +352,13 @@ int storage_insert(Storage * str, size_t pos,const char *s, size_t length){
     str->front_size+=length;
     str->gap_size-=length;
 
+    strcmd_add(str, STORAGE_INSERT, s, pos, length, savemode);
+
     return 1;
 }
 
 
-int storage_remove(Storage * str, size_t pos, size_t count){
+int storage_remove(Storage * str, size_t pos, size_t count, StorageSaveMode savemode){
 
     if(pos+count > STR_END(str)){
         return 0;
@@ -284,15 +368,23 @@ int storage_remove(Storage * str, size_t pos, size_t count){
         storage_move_gap(str,pos+count);
     }
 
-    //dont actually have to do any allocating, just mark the area as SDL_free
+
+    //dont actually have to do any allocating, just mark the area as free
     str->front_size-=count;
     str->gap_size+=count;
+
+
+    strcmd_add(str, STORAGE_REMOVE, (str->buffer + str->front_size), pos, count, savemode);
+
 
     storage_move_gap(str,pos);
 
     if(str->gap_size > BUFFER_GAP_SIZE){
         storage_realloc(str);
     }
+
+
+
 
     return 1;
     
@@ -362,6 +454,37 @@ size_t storage_nextline(Storage* str, size_t index) {
 
 
 
+//on success returns the index of the undone command, on failure returns -1
+int storage_undo(Storage* str) {
+
+    if (str->StoredCommands == 0) {
+        return -1;
+    }
+
+
+    StorageCommand* cmd = str->last;
+    if (cmd == NULL) return -1;
+
+    switch (cmd->cmd)
+    {
+    case STORAGE_INSERT: //data was inserted that has to be removed
+        storage_remove(str, cmd->index, cmd->length, STR_NONE);
+        break;
+    case STORAGE_REMOVE: //data was removed that has to be readded
+        storage_insert(str, cmd->index,cmd->data, cmd->length, STR_NONE);
+        break;
+
+    default:
+        break;
+    }
+
+    int index = cmd->index;
+    strcmd_pop(str);
+    return index;
+}
+
+
+//currently doesnt save changes in undo
 void storage_replaceall(Storage *str, char *target, char* s){
 
     int names[512];
@@ -374,8 +497,8 @@ void storage_replaceall(Storage *str, char *target, char* s){
 
     for (int i = c; i > 0; i--)
     {
-        storage_remove(str,names[i-1],targetlength);
-        storage_insert(str,names[i-1],s,slength);
+        storage_remove(str,names[i-1],targetlength, STR_NONE);
+        storage_insert(str,names[i-1],s,slength, STR_NONE);
     }
 }
 

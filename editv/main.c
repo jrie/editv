@@ -324,13 +324,16 @@ void Paste() {
 
     size_t clip_size = SDL_strlen(clip);
 
-    storage_insert(str, cursor_pos, clip, clip_size);
+    storage_insert(str, cursor_pos, clip, clip_size, STR_UNDO);
     cursor_pos += clip_size;
     SDL_free(clip);
 }
 
 void Undo() {
-
+    int index = storage_undo(str);
+    if (index != -1) {
+        cursor_pos = index;
+    }
 }
 
 #ifdef _WIN32
@@ -462,14 +465,14 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
     if (event->type == SDL_EVENT_KEY_DOWN ) {
         SDL_Keycode key = event->key.key;
         if (key == SDLK_RETURN) {
-            storage_insert_c(str, '\n', cursor_pos);
+            storage_insert_c(str, '\n', cursor_pos, STR_UNDO);
             inc_cursor_x();
             unsaved_changes = true;
         }
         if (key == SDLK_BACKSPACE) {
             if (cursor_pos != 0) {
                 dec_cursor_x();
-                storage_remove(str, cursor_pos, 1);
+                storage_remove(str, cursor_pos, 1, STR_UNDO);
                 unsaved_changes = true;
             }
 
@@ -541,7 +544,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
         const char* text = event->text.text;
 
-        storage_insert(str, cursor_pos, text, SDL_strlen(text));
+        storage_insert(str, cursor_pos, text, SDL_strlen(text), STR_UNDO);
         unsaved_changes = true;
 
         for (size_t i = 0; i < SDL_strlen(text); i++)
