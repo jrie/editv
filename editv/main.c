@@ -13,7 +13,7 @@
 
 #define EDV_VERSION_MAJOR 0
 #define EDV_VERSION_MINOR 1
-#define EDV_VERSION_PATCH 5
+#define EDV_VERSION_PATCH 6
 
 #define STRINGIFY0(s) # s
 #define STRINGIFY(s) STRINGIFY0(s)
@@ -37,7 +37,7 @@ static SDL_Renderer* renderer = NULL;
 static SDL_Texture* texture = NULL;
 static TTF_Font* font = NULL;
 
-
+bool do_draw = true; //lock this when doing callbacks or they may be a chance of memory corruption
 bool func_mode = false;
 bool shift_down = false;
 bool unsaved_changes = false;
@@ -396,12 +396,14 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
 
     if (filelist[0] == NULL) {
         printf("Open Cancelled\n");
+        do_draw = true;
         return;
     }
 
     Storage *s = storage_fromfile(filelist[0], 0);
 
     if (s == NULL) {
+        do_draw = true;
         return;
     }
 
@@ -424,6 +426,9 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
     str = s;
 
     UpdateTitle();
+
+    //allow drawing to happen again, as we have replaced the data
+    do_draw = true;
 }
 
 void Save() {
@@ -447,7 +452,8 @@ void Open() {
         { "All files",   "*" },
         { "Text files",  "txt" }
     };
-
+    //lock drawing to prevent memory corruption when callback returns and the buffer is changed (potentially during read)
+    do_draw = false;
     SDL_ShowOpenFileDialog(OpenCallback, NULL, window, filters, 2, lastFilePath,0);
 }
 
@@ -479,16 +485,65 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
             
         }
         if (key == SDLK_LEFT) {
-            dec_cursor_x();
+
+            if (func_mode) {
+                char chl = storage_get(str, cursor_pos);
+
+                while (cursor_pos > 0 && chl == ' ') { //skip spaces
+                    dec_cursor_x();
+                    chl = storage_get(str, cursor_pos);
+
+                }
+
+                while (cursor_pos > 0 && chl != ' ') { //skip words
+                    dec_cursor_x();
+                    chl = storage_get(str, cursor_pos);
+
+                }
+
+
+                //inc_cursor_x();
+            }
+            else {
+                dec_cursor_x();
+            }
+
         }
         if (key == SDLK_RIGHT) {
-            inc_cursor_x();
+            if (func_mode) {
+                char chr = storage_get(str, cursor_pos);
+
+                while (cursor_pos < STR_END(str) && chr != ' ') { // skip words
+                    inc_cursor_x();
+                    chr = storage_get(str, cursor_pos);
+
+                }
+
+                while (cursor_pos < STR_END(str) && chr == ' ') { // skip spaces
+                    inc_cursor_x();
+                    chr = storage_get(str, cursor_pos);
+                }
+            }
+            else {
+                inc_cursor_x();
+            }
+           
         }
         if (key == SDLK_UP) {
             dec_cursor_y();
+            if (func_mode) { //go twice as fast
+                dec_cursor_y();
+                dec_cursor_y();
+                dec_cursor_y();
+            }
         }
         if (key == SDLK_DOWN) {
             inc_cursor_y();
+            if (func_mode) { //go twice as fast
+                inc_cursor_y();
+                inc_cursor_y();
+                inc_cursor_y();
+            }
         }
 
         if (key == SDLK_LCTRL) {
@@ -564,13 +619,15 @@ void Draw();
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void* appstate)
 {
+    if (do_draw) { //else just freeze whatever is currently on screen
+        SDL_SetRenderDrawColor(renderer, cfg->background_color.r, cfg->background_color.g, cfg->background_color.b, cfg->background_color.a);
+        SDL_RenderClear(renderer);
 
-    SDL_SetRenderDrawColor(renderer, cfg->background_color.r, cfg->background_color.g, cfg->background_color.b, cfg->background_color.a);
-    SDL_RenderClear(renderer);
+        Draw();
 
-    Draw();
+        SDL_RenderPresent(renderer);
+    }
 
-    SDL_RenderPresent(renderer);
 
     return SDL_APP_CONTINUE;
 }
@@ -892,7 +949,6 @@ void Draw() {
 
     new_y = SDL_max(new_y, 0);//keep this above zero to avoid weird wrapping errors
 
-    y_offset = 0;
 
 
     if (line_count > max_y && new_y >= line_count + line_start) { //off bottom of page
@@ -909,9 +965,9 @@ void Draw() {
                     break;
                 }
             }
-
-            index_offset = lines[1].index; //we have already cached the line index of the first line
-            line_start++;
+            size_t newline =  SDL_min(SDL_max(y_offset, 1), line_count);
+            index_offset = lines[newline].index; //we have already cached the line index of the first line
+            line_start += newline;
 
             cursor_pos = in + i;
 
@@ -927,32 +983,43 @@ void Draw() {
 
         if (new_y >= 0) {
             int in = (int)index_offset; // points to the first character to be shown
-            in -= 2; // move back and skip the newline
+            
 
             int l = 0;
-            //bounds checking
-            if (in > 0) {
-                //loops backward through the array until its reaches a newline
-                while (storage_get(str, in) != '\n')
-                {
-                    in--;
-                    l++;
-                    if (in == 0) {
-                        in--; //adjust so it lands on 0
-                        break;
+
+            size_t i;
+            for (i = 0; i < -y_offset; i++)
+            {
+                l = 0;
+                //bounds checking
+                if (in > 1) {
+                    //loops backward through the array until its reaches a newline
+                    in -= 2; // move back and skip the newline
+
+                    while (storage_get(str, in) != '\n')
+                    {
+                        in--;
+                        l++;
+                        if (in == 0) {
+                            in--; //adjust so it lands on 0
+                            break;
+                        }
                     }
+                    
                 }
-                in++;//move off the found newline
+                else {
+                    in = 0;
+                    i = line_start;
+                    break;
+                }
             }
-            else {
-                in = 0;
-            }
-
-
+            in++;//move off the found newline
+           
 
             index_offset = in;
             if (line_start != 0) {
-                line_start--;
+                int ln = SDL_max(0, ((int)line_start) - i);
+                line_start = ln;
             }
 
 
@@ -977,6 +1044,10 @@ void Draw() {
 
 
     }
+
+
+    //clear offset buffer
+    y_offset = 0;
 
 
     if (show_line_numbers) {
