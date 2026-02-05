@@ -55,15 +55,15 @@ int w, h;
 
 size_t index_offset = 0;//where to start showing the lines from
 size_t line_start = 0;
-
-
 size_t cursor_pos = 0;
+
+//pending y offset
 int y_offset = 0;
 
 
 int show_line_numbers = 1;
 int wrap_lines = 1;
-int cache_lines = 0; //CURRENTLY BROKEN, DO NOT ENABLE
+int cache_lines = 0; //CURRENTLY BROKEN AND CAUSES MAJOR GLITCHES, DO NOT ENABLE
 
 typedef struct {
     line_t line;
@@ -409,6 +409,11 @@ void OpenCallback(void* userdata, const char* const* filelist, int filter) {
     if (str) {
         storage_free(str);
     }
+
+    //reset to start of file
+    cursor_pos = 0;
+    line_start = 0;
+    index_offset = 0;
 
 
     printf("Buffer len = %zu, Gap len = %zu, Gap[0] = %zu\n", s->buffer_size, s->gap_size, s->front_size);
