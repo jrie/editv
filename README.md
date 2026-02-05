@@ -13,12 +13,12 @@ It is currently very basic, but supports all the basic operations needed in a te
 - 4 directional Cursor Movement
 - Text Scrolling
 - Pasting from clipboard
+- -Undo (Redo not yet implemented)
 
 ### In Development
 
 - Text selection
 - Copying
-- Undo/Redo
 - Text Finding/Pattern Matching
 
 
@@ -31,7 +31,9 @@ To view options hold 'ctrl' and press a corresponding key
 's' - save file
 'v' - paste from clipboard
 'q' - quit
+'z' - undo
 
+You can also edit config.cfg (generated when first loaded) for some simple customisation options
 
 ## Building
 
