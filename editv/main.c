@@ -13,7 +13,7 @@
 
 #define EDV_VERSION_MAJOR 0
 #define EDV_VERSION_MINOR 1
-#define EDV_VERSION_PATCH 4
+#define EDV_VERSION_PATCH 5
 
 #define STRINGIFY0(s) # s
 #define STRINGIFY(s) STRINGIFY0(s)
@@ -333,8 +333,20 @@ void Undo() {
 
 }
 
+#ifdef _WIN32
+#define SAVE_MODE "w,ccs=UTF-8" //linux doesnt seem to like this flag but on windows without it it causes the file to be interpreted as UTF16 by some programs
+#else
+#define SAVE_MODE "w"
+#endif
+
+
 void SaveTo(const char* path) {
-    SDL_IOStream* stream = SDL_IOFromFile(path, "w,ccs=UTF-8");
+
+    SDL_IOStream* stream = SDL_IOFromFile(path, SAVE_MODE);
+    if (stream == NULL) {
+        SDL_Log("Invalid save path: '%s'\n",path);
+        return;
+    }
 
     const char UTF_BOM[] = { 0xEF ,0xBB,0xBF };
 
