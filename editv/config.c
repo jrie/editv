@@ -13,7 +13,7 @@ edv_config cfg_defaults = {
 	{255,255,255,255},
 	{0,0,0,255},
 	{150,150,150,255},
-	"assets\\CascadiaMono-Regular.otf",
+	"assets/CascadiaMono-Regular.otf",
 	18
 };
 
@@ -167,7 +167,7 @@ edv_config *load_config(void) {
 
 
 
-		fprintf(f, "text_color=FFFFFFFF\nmenu_color=FFFFFFFF\nbackground_color=000000FF\nline_number_color=969696FF\ndefault_font=assets\\CascadiaMono-Regular.otf\nfont_size=18\n");
+		fprintf(f, "text_color=FFFFFFFF\nmenu_color=FFFFFFFF\nbackground_color=000000FF\nline_number_color=969696FF\ndefault_font=assets/CascadiaMono-Regular.otf\nfont_size=18\n");
 
 		fclose(f);
 

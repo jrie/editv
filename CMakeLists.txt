@@ -25,7 +25,13 @@ find_package(SDL3_ttf REQUIRED)
 
 add_executable(editv ${SOURCE_FILES})
 
+if (WIN32)
+
 target_link_options(editv PRIVATE -mwindows)
+
+endif (WIN32)
+
+
 
 target_include_directories(editv PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/editv)
 

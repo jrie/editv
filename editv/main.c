@@ -414,8 +414,8 @@ void Save() {
     }
 
     const SDL_DialogFileFilter filters[] = {
+        { "Text files",  "txt" },
         { "All files",   "*" },
-        { "Text files",  "txt" }
     };
 
     SDL_ShowSaveFileDialog(SaveCallback, NULL, window, filters, 2, lastFilePath);
