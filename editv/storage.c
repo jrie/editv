@@ -6,38 +6,59 @@
 
 static void strcmd_trim(Storage* str) {
 
-    StorageCommand* first = str->first;
+    StorageCommand* first = str->first_undo;
     if (first == NULL) return;
 
-    str->first = first->next;
+    str->first_undo = first->next;
 
-    if (str->StoredCommands == 1) {
-        str->last = NULL;
+    if (str->StoredUndos == 1) {
+        str->last_undo = NULL;
     }
 
 
     SDL_free(first->data);
     SDL_free(first);
 
-    str->StoredCommands--;
+    str->StoredUndos--;
 }
 
 static void strcmd_pop(Storage* str) {
 
-    StorageCommand* top = str->last;
+    StorageCommand* top = str->last_undo;
     if (top == NULL) return;
 
 
-    str->last = top->prev;
+    str->last_undo = top->prev;
 
-    if (str->StoredCommands == 1) {
-        str->first = NULL;
+    if (str->StoredUndos == 1) {
+        str->first_undo = NULL;
     }
 
     SDL_free(top->data);
     SDL_free(top);
 
-    str->StoredCommands--;
+    str->StoredUndos--;
+}
+
+static void strcmd_pop_redo(Storage* str) {
+
+    StorageCommand* top = str->last_redo;
+    if (top == NULL) return;
+
+
+    str->last_redo = top->prev;
+
+    SDL_free(top->data);
+    SDL_free(top);
+}
+
+
+
+void strcmd_clear_redos(Storage* str) {
+
+    while (str->last_redo != NULL) {
+        strcmd_pop_redo(str);
+    }
 }
 
 
@@ -53,37 +74,49 @@ static void strcmd_add(Storage *str, StorageCommandType type, const char* data, 
 
     cmd->data = txt;
     cmd->cmd = type;
-    cmd->prev = str->last;
     cmd->next = NULL;
     cmd->index = index;
     cmd->length = length;
 
-    if (str->first == NULL) {
-        str->first = cmd;
+    if (savemode & STR_UNDO) {
+        cmd->prev = str->last_undo;
+
+        if (str->first_undo == NULL) {
+            str->first_undo = cmd;
+        }
+        else
+        {
+            str->last_undo->next = cmd;
+
+        }
+
+        str->last_undo = cmd;
+
+        str->StoredUndos++;
+
+        if (str->StoredUndos > COMMAND_HISTORY_MAX) {
+            strcmd_trim(str);
+        }
+
+
+        if (!(savemode & STR_REDO)) {
+            strcmd_clear_redos(str);
+        }
     }
-    else
-    {
-        str->last->next = cmd;
+    else if (savemode & STR_REDO) {
+        cmd->prev = str->last_redo;
 
+        str->last_redo = cmd;
     }
 
-    str->last = cmd;
 
-    str->StoredCommands++;
-
-    if (str->StoredCommands > COMMAND_HISTORY_MAX) {
-        strcmd_trim(str);
-    }
 }
-
-
-
 
 
 void storage_free(Storage* str){
 
 
-    while (str->StoredCommands != 0)
+    while (str->StoredUndos != 0)
     {
         strcmd_pop(str); //free stored command memory
     }
@@ -123,9 +156,10 @@ Storage* storage_alloc(size_t size){
 
     s->buffer[s->buffer_size] = 0;
 
-    s->first = NULL;
-    s->last = NULL;
-    s->StoredCommands = 0;
+    s->first_undo = NULL;
+    s->last_undo = NULL;
+    s->last_redo = NULL;
+    s->StoredUndos = 0;
     //s->buffer[s->front_size] = '\0';
     return s;
 
@@ -464,12 +498,12 @@ size_t storage_nextline(Storage* str, size_t index) {
 //on success returns the index of the undone command, on failure returns -1
 int storage_undo(Storage* str) {
 
-    if (str->StoredCommands == 0) {
+    if (str->StoredUndos == 0) {
         return -1;
     }
 
 
-    StorageCommand* cmd = str->last;
+    StorageCommand* cmd = str->last_undo;
     if (cmd == NULL) return -1;
 
     switch (cmd->cmd)
@@ -485,8 +519,37 @@ int storage_undo(Storage* str) {
         break;
     }
 
+    strcmd_add(str, cmd->cmd, cmd->data, cmd->index, cmd->length, STR_REDO);
+
     int index = cmd->index;
     strcmd_pop(str);
+    return index;
+}
+
+//on success returns the index of the undone command, on failure returns -1
+int storage_redo(Storage* str) {
+
+    StorageCommand* cmd = str->last_redo;
+    if (cmd == NULL) return -1;
+
+    switch (cmd->cmd)
+    {
+    case STORAGE_INSERT:
+        storage_insert(str, cmd->index, cmd->data, cmd->length, STR_NONE);
+        break;
+    case STORAGE_REMOVE:
+        storage_remove(str, cmd->index, cmd->length, STR_NONE);
+
+        break;
+
+    default:
+        break;
+    }
+
+    strcmd_add(str, cmd->cmd, cmd->data, cmd->index, cmd->length, STR_REUNDO);
+
+    int index = cmd->index + cmd->length;
+    strcmd_pop_redo(str);
     return index;
 }
 

@@ -336,6 +336,13 @@ void Undo() {
     }
 }
 
+void Redo() {
+    int index = storage_redo(str);
+    if (index != -1) {
+        cursor_pos = index;
+    }
+}
+
 #ifdef _WIN32
 #define SAVE_MODE "w,ccs=UTF-8" //linux doesnt seem to like this flag but on windows without it it causes the file to be interpreted as UTF16 by some programs
 #else
@@ -569,13 +576,20 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
                 New();
             }
             if (key == SDLK_Z) { //undo
+
                 Undo();
+            }
+            if (key == SDLK_Y) { //redo
+                Redo();
             }
             if (key == SDLK_V) { //paste
                 Paste();
             }
             if (key == SDLK_Q) { //quit
-                return SDL_APP_SUCCESS;
+                if (shift_down) { //only in alt func mode
+                    return SDL_APP_SUCCESS;
+                }
+                
             }
         }
     }
@@ -673,12 +687,16 @@ char* menu_options[] = {
     "open : 'o'",
     "save : 's'",
     "new : 'n'",
-    "quit : 'q'",
-    "paste : 'v'"
+    "paste : 'v'",
+    "undo : 'z'",
+    "redo : 'y'",
+    
+    
 };
 
 char* alt_menu_options[] = {
     "save as : 's'",
+    "quit : 'q'",
 };
 
 void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {

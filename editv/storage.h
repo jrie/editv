@@ -12,9 +12,10 @@ typedef enum StorageCommandType {
 } StorageCommandType;
 
 typedef enum StorageSaveMode {
-    STR_NONE,
-    STR_UNDO,
-    STR_REDO
+    STR_NONE = 0,
+    STR_UNDO = 1 << 0,
+    STR_REDO = 1 << 1,
+    STR_REUNDO = STR_UNDO | STR_REDO
 } StorageSaveMode;
 
 typedef struct StorageCommand {
@@ -40,10 +41,13 @@ typedef struct Storage
 
     size_t gap_size;
 
-    StorageCommand* first;
-    StorageCommand *last;
-    size_t StoredCommands;
+    StorageCommand *first_undo;
+    StorageCommand *last_undo;
 
+    //we dont need a first redo as we will never have to trim it, as the redo stack can never be bigger than the undo stack
+    StorageCommand *last_redo;
+
+    size_t StoredUndos;
 } Storage;
 
 
@@ -78,7 +82,7 @@ int storage_insert(Storage* str, size_t pos, const char* s, size_t length, Stora
 int storage_remove(Storage* str, size_t pos, size_t count, StorageSaveMode savemode);
 
 int storage_undo(Storage* str);
-
+int storage_redo(Storage* str);
 
 int storage_overwrite(Storage* str, size_t pos, char* s, size_t length);
 
