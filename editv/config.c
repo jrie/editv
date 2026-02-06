@@ -8,20 +8,15 @@
 
 const char const config_path[] = "config.cfg";
 
+
+
 edv_config cfg_defaults = {
-	{255,255,255,255},
-	{255,255,255,255},
-	{0,0,0,255},
-	{150,150,150,255},
-	"assets/CascadiaMono-Regular.otf",
-	18
+#define CFG(x,arg,...) __VA_ARGS__,
+	CFG_LIST
+#undef CFG
 };
 
-typedef enum {
-	edv_color_cfg,
-	edv_string_cfg,
-	edv_int_cfg
-}cfg_type;
+
 
 typedef struct {
 	cfg_type type;
@@ -80,6 +75,28 @@ void unload_config(edv_config *cfg) {
 	SDL_free(cfg);
 }
 
+void print_arg(FILE *f, cfg_type type, const char* name, void* value) {
+
+	char buf[256];
+
+	switch (type)
+	{
+	case edv_string_cfg:
+		SDL_snprintf(buf, 256, "%s", *((char**)value));
+		break;
+	case edv_color_cfg:
+		SDL_snprintf(buf, 256, "%.2X%.2X%.2X%.2X", ((edv_color*)value)->r & 0xff, ((edv_color*)value)->g & 0xff, ((edv_color*)value)->b & 0xff, ((edv_color*)value)->a & 0xff);
+		break;
+	case edv_int_cfg:
+		SDL_snprintf(buf, 256, "%d", *((int*)value));
+		break;
+	default:
+		break;
+	}
+
+	fprintf(f, "%s=%s\n", name, buf);
+}
+
 edv_config *load_config(void) {
 
 	edv_config* cfg = SDL_malloc(2*sizeof(edv_config));
@@ -106,9 +123,19 @@ edv_config *load_config(void) {
 
 
 		while (fgets(buf, 1024, f)) {
-			char* name = strtok(buf, "=");
 
-			char* rvalue = strtok(NULL, "\n");
+			char* save = 0;
+			char* save1 = 0;
+
+
+			char* name = SDL_strtok_r(buf, "=", &save);
+			if (name == NULL) continue;
+
+			char* rvalue = SDL_strtok_r(NULL, "\n", &save);
+
+			while (*rvalue == ' ') rvalue++; //skip over spaces
+
+			rvalue = SDL_strtok_r(rvalue, " ", save1); // cut out end spaces
 
 			if (rvalue == NULL) {
 				continue;
@@ -166,18 +193,14 @@ edv_config *load_config(void) {
 		}
 
 
-
-		fprintf(f, "text_color=FFFFFFFF\nmenu_color=FFFFFFFF\nbackground_color=000000FF\nline_number_color=969696FF\ndefault_font=assets/CascadiaMono-Regular.otf\nfont_size=18\n");
+		//evil define to make it more '''dynamic'''
+		//basically, it creates a temporary variable with the default values stored in the var args of the define, 
+		//then passes a pointer to that into a function that prints the args, as well as a string representation of the name and the type (gotten by appended _cfg to the edv_type)
+#define CFG(x,arg,...) x arg##_tmp = __VA_ARGS__;  print_arg(f,x##_cfg,#arg,&arg##_tmp);
+		CFG_LIST
+#undef CFG
 
 		fclose(f);
-
-		//if (SDL_IOFromFile(config_path, "w")) {
-		//	SDL_ReadIO
-		//}
-		//else
-		//{
-		//	SDL_Log("Failed to generate config file\n");
-		//}
 
 		return cfg;
 	}
