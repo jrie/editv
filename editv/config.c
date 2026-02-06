@@ -31,42 +31,17 @@ const cfg_name cfg_names[] = {
 #undef CFG
 };
 
-edv_color parse_color(char* hexstr) {
+int parse_color(char* hexstr,edv_color *col) {
 
-	char hexbuf[3];
-	hexbuf[2] = '\0';
+	char hexbuf[9];
+	hexbuf[8] = '\0';
 
 	if (SDL_strlen(hexstr) != 8) {
-		return (edv_color) { 0 };
+		return 0;
 	}
-
-	hexbuf[0] = hexstr[0];
-	hexbuf[1] = hexstr[1];
-	int r = SDL_strtol(hexbuf, NULL, 16);
-	if (r < 0 || r > 255) {
-		return (edv_color) { 0 };
-	}
-	hexbuf[0] = hexstr[2];
-	hexbuf[1] = hexstr[3];
-	int g = SDL_strtol(hexbuf, NULL, 16);
-	if (g < 0 || g > 255) {
-		return (edv_color) { 0 };
-	}
-	hexbuf[0] = hexstr[4];
-	hexbuf[1] = hexstr[5];
-	int b = SDL_strtol(hexbuf, NULL, 16);
-	if (b < 0 || b > 255) {
-		return (edv_color) { 0 };
-	}
-	hexbuf[0] = hexstr[6];
-	hexbuf[1] = hexstr[7];
-	int a = SDL_strtol(hexbuf, NULL, 16);
-	if (a < 0 || a > 255) {
-		return (edv_color) {0};
-	}
-	edv_color c = (edv_color){ r,g,b,a };
-
-	return c;
+	unsigned long hex = SDL_strtoul(hexstr, NULL, 16);
+	*col = (edv_color){ ((hex >> 24) & 0xFF),((hex >> 16) & 0xFF),((hex >> 8) & 0xFF), ((hex) & 0xFF) };
+	return 1;
 }
 
 void unload_config(edv_config *cfg) {
@@ -94,7 +69,20 @@ void print_arg(FILE *f, cfg_type type, const char* name, void* value) {
 		break;
 	}
 
-	fprintf(f, "%s=%s\n", name, buf);
+	fprintf(f, "%s = %s\n", name, buf);
+}
+
+char* trim(char* str) {
+	//remove leading and trailing spaces
+	while (*str == ' ') str++; //skip over spaces
+
+	char* d = str;
+	while (*d != ' ' && *d != '\0') {
+		d++;
+	}
+	*d = '\0';
+
+	return str;
 }
 
 edv_config *load_config(void) {
@@ -117,6 +105,11 @@ edv_config *load_config(void) {
 
 		char buf[1024];//buffer massive so that we shouldnt ever run out of memory for this
 
+		size_t name_size = (sizeof(cfg_names)) / sizeof(cfg_names[0]);
+
+		//values to use in the for loop
+		edv_string str;
+		edv_color col;
 
 
 		FILE* f = fopen(config_path, "r");
@@ -131,20 +124,21 @@ edv_config *load_config(void) {
 			char* name = SDL_strtok_r(buf, "=", &save);
 			if (name == NULL) continue;
 
-			char* rvalue = SDL_strtok_r(NULL, "\n", &save);
+			name = trim(name);
 
+			char* rvalue = SDL_strtok_r(NULL, "\n", &save); // gets the value of the config and has the added bonus of stripping off any newlines
+
+			if (rvalue == NULL) continue; // only happens when its 'name=' and the rvalue is completely blank
+
+			//remove leading and trailing spaces
 			while (*rvalue == ' ') rvalue++; //skip over spaces
 
-			rvalue = SDL_strtok_r(rvalue, " ", save1); // cut out end spaces
+			rvalue = trim(rvalue);
 
 			if (rvalue == NULL) {
 				continue;
 			}
-			size_t name_size = (sizeof(cfg_names)) / sizeof(cfg_names[0]);
 
-			edv_string str;
-			edv_color col;
-			
 			for (size_t i = 0; i < name_size; i++)
 			{
 				if (strcmp(name, cfg_names[i].name) == 0) { //string matches
@@ -153,23 +147,28 @@ edv_config *load_config(void) {
 					switch (cfg_names[i].type)
 					{
 					case edv_color_cfg:
-						col = parse_color(rvalue);
-						//*(edv_color*)(cfg + cfg_names[i].offset) = col;
+
+						if (!parse_color(rvalue, &col)) {
+							goto invalid_config;
+						}
 						memcpy(c, &col, sizeof(edv_color));
 
-						goto next;
+						goto next; // i dont care that goto is 'bad practice', im not doing some bullshit to break out of a nested loop when i can just jump directly out
 					case edv_string_cfg:
-						str = *(edv_string*)c;
-						SDL_strlcpy(str, rvalue, SDL_strlen(rvalue)+1);
+						SDL_strlcpy(*(edv_string*)c, rvalue, SDL_strlen(rvalue)+1);
 						goto next;
 					case edv_int_cfg:
 						*(int*)c = SDL_atoi(rvalue);
 						goto next;
 					default:
+						printf("Unknown config type for config '%s'\n", name);
 						break;
 					}
 				}
 			}
+			
+		invalid_config:
+			printf("Invalid config: %s = %s\n", name, rvalue);
 		next:
 			;
 		}
