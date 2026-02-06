@@ -264,6 +264,11 @@ void New() {
 
     str = storage_alloc(0);
 
+    //reset to start of file
+    cursor_pos = 0;
+    line_start = 0;
+    index_offset = 0;
+
     openFile[0] = 0;
     UpdateTitle();
 }
