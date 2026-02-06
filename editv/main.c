@@ -61,9 +61,9 @@ size_t cursor_pos = 0;
 int y_offset = 0;
 
 
-int show_line_numbers = 1;
-int wrap_lines = 1;
-int cache_lines = 0; //CURRENTLY BROKEN AND CAUSES MAJOR GLITCHES, DO NOT ENABLE
+bool show_line_numbers = true;
+bool wrap_lines = true;
+bool cache_lines = false; //CURRENTLY BROKEN AND CAUSES MAJOR GLITCHES, DO NOT ENABLE
 
 typedef struct {
     line_t line;
@@ -756,6 +756,9 @@ void Draw() {
     float x, y, cw, ch;
     const float scale = 1.0f; //render scale of the characters - NOT WORKING
 
+
+    SDL_Color color = { cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
+
     
     const float line_gap = TTF_GetFontLineSkip(font);
 
@@ -785,7 +788,7 @@ void Draw() {
 
     if (unsaved_changes) {
         char astk[] = "*";
-        SDL_Color color = { cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
+        
         RenderTextAt(w-ch, ch, astk, color);
     }
 
@@ -1106,8 +1109,7 @@ void Draw() {
                     r.x = (xorigin + (tw));
                     r.y = yorigin + ((cursor_y - line_start) * line_gap) + 2;//  y;// SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * 2 * scale + (cursor_y * (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE + 2) * scale);
 
-                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-
+                    SDL_SetRenderDrawColor(renderer, color.r,color.g,color.b,color.a);
 
                     SDL_RenderFillRect(renderer, &r);
 
