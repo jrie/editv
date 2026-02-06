@@ -6,23 +6,27 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-
 #include <SDL3_ttf/SDL_ttf.h>
 
-#define min(a,b) (((a) < (b)) ? (a) : (b))
 
+//Meta Information
 #define EDV_VERSION_MAJOR 0
 #define EDV_VERSION_MINOR 1
-#define EDV_VERSION_PATCH 7
+#define EDV_VERSION_PATCH 8
 
 #define STRINGIFY0(s) # s
 #define STRINGIFY(s) STRINGIFY0(s)
 
 #define VERSION STRINGIFY(EDV_VERSION_MAJOR)"."STRINGIFY(EDV_VERSION_MINOR)"."STRINGIFY(EDV_VERSION_PATCH)
 
-
-
 const char* const appname = "editv "VERSION;
+
+
+//Options
+bool do_draw = true; //lock this when doing callbacks that modify/replace the storage or they may be a chance of memory corruption
+bool func_mode = false;
+bool shift_down = false;
+
 
 typedef struct
 {
@@ -31,48 +35,71 @@ typedef struct
     size_t length;
 } line_t;
 
+typedef struct {
+    line_t line;
+    SDL_Texture* tex;
+    int filled;
+} cached_line;
+
+typedef struct {
+
+
+
+    float cw;
+    float ch;
+
+    int line_gap;//vertical gap between lines
+
+    int w;
+    int h;
+
+    int xorigin;
+    int yorigin;
+
+    int max_y; //max lines that can fit on a screen
+
+
+    SDL_Color text_color;
+
+} render_info;
+
 
 static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
 static SDL_Texture* texture = NULL;
 static TTF_Font* font = NULL;
 
-bool do_draw = true; //lock this when doing callbacks or they may be a chance of memory corruption
-bool func_mode = false;
-bool shift_down = false;
-bool unsaved_changes = false;
 
+//File IO
+char* lastFilePath = NULL;
 
-extern unsigned char tiny_ttf[];
-extern unsigned int tiny_ttf_len;
+char openFile[256];
 
+render_info info;
 edv_config* cfg;
 Storage* str;
 //size_t Cursor = 0; //location in file of cursor
 
-int w, h;
 
+//State information
+bool unsaved_changes = false;
 
 size_t index_offset = 0;//where to start showing the lines from
 size_t line_start = 0;
 size_t cursor_pos = 0;
 
+cached_line cached_lines[256];
+size_t cached_line_count = 0;
+
 //pending y offset
 int y_offset = 0;
 
-
+//options
 bool show_line_numbers = true;
 bool wrap_lines = true;
 bool cache_lines = false; //CURRENTLY BROKEN AND CAUSES MAJOR GLITCHES, DO NOT ENABLE
 
-typedef struct {
-    line_t line;
-    SDL_Texture* tex;
-    int filled;
-}cached_line;
 
-cached_line cached_lines[256];
-size_t cached_line_count = 0;
 
 
 void inc_cursor_y() {
@@ -80,11 +107,9 @@ void inc_cursor_y() {
     y_offset++;
 }
 
-
 void dec_cursor_y() {
     y_offset--;
 }
-
 
 void inc_cursor_x() {
 
@@ -94,6 +119,7 @@ void inc_cursor_x() {
 
     cursor_pos++;
 }
+
 void dec_cursor_x() {
 
 
@@ -103,11 +129,6 @@ void dec_cursor_x() {
 
     cursor_pos--;
 }
-
-char* lastFilePath = NULL;
-
-char openFile[256];
-
 
 void UpdateTitle() {
 
@@ -236,78 +257,7 @@ invalid_args:
     return 0;
 }
 
-//const char const default_font[] = "assets\\CascadiaMono-Regular.otf";
-
-/* This function runs once at startup. */
-SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
-{
-    if (argc > 1) {
-        if (!ParseArgs(argc, argv)) {
-            return SDL_APP_FAILURE;
-        }
-    }
-    /* Create the window */
-    if (!SDL_CreateWindowAndRenderer(appname, 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
-        printf("Couldn't create window and renderer: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-
-    SDL_SetRenderVSync(renderer, 1);
-
-
-
-    if (!TTF_Init()) {
-        printf("Couldn't initialize SDL_ttf: %s\n", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-
-
-    //call in case a file was loaded from the cmdline
-    UpdateTitle();
-
-    cfg = load_config();
-
-
-
-
-    
-    /* Open the font */
-    font = TTF_OpenFont(cfg->default_font, (float)cfg->font_size);
-    if (!font) {
-        printf("Couldn't open font: %s\n", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-
-
-    if (str == NULL) { //wasnt already allocated by cmd arguments
-        str = storage_alloc(0);
-        if (str == NULL) {
-            return SDL_APP_FAILURE;
-        }
-    }
-
-
-    //fclose(f);
-
-    if (str == NULL) {
-        return SDL_APP_FAILURE;
-    }
-
-    printf("\n\nBUFFER\n\n");
-
-    printf("\n");
-
-
-
-    //print_buffer(str);
-
-
-    SDL_StartTextInput(window);
-
-    return SDL_APP_CONTINUE;
-}
-
-
+//IO operations
 
 void New() {
     storage_free(str);
@@ -463,195 +413,24 @@ void Open() {
 }
 
 
+//Rendering
 
 
-/* This function runs when a new event (mouse input, keypresses, etc) occurs. */
-SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
-{
-    if (event->type == SDL_EVENT_WINDOW_RESIZED) {
-        w = event->window.data1;
-        h = event->window.data2;
+SDL_Texture* CacheLine(line_t line, char* buf, SDL_Color color) {
+
+    SDL_Surface* text;
+    /* Create the text */
+    text = TTF_RenderText_Blended(font, buf, 0, color);
+    if (text) {
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, text);
+        cached_lines[line.number - line_start] = (cached_line){ line,texture,1 };
+        //always ensure that no matter whar we free this so we dont leak
+        SDL_DestroySurface(text);
+        return texture;
     }
-
-    if (event->type == SDL_EVENT_KEY_DOWN ) {
-        SDL_Keycode key = event->key.key;
-        if (key == SDLK_RETURN) {
-            storage_insert_c(str, '\n', cursor_pos, STR_UNDO);
-            inc_cursor_x();
-            unsaved_changes = true;
-        }
-        if (key == SDLK_BACKSPACE) {
-            if (cursor_pos != 0) {
-                dec_cursor_x();
-                storage_remove(str, cursor_pos, 1, STR_UNDO);
-                unsaved_changes = true;
-            }
-
-            
-        }
-        if (key == SDLK_LEFT) {
-
-            if (func_mode) {
-                char chl = storage_get(str, cursor_pos);
-
-                while (cursor_pos > 0 && chl == ' ') { //skip spaces
-                    dec_cursor_x();
-                    chl = storage_get(str, cursor_pos);
-
-                }
-
-                while (cursor_pos > 0 && chl != ' ') { //skip words
-                    dec_cursor_x();
-                    chl = storage_get(str, cursor_pos);
-
-                }
-
-
-                //inc_cursor_x();
-            }
-            else {
-                dec_cursor_x();
-            }
-
-        }
-        if (key == SDLK_RIGHT) {
-            if (func_mode) {
-                char chr = storage_get(str, cursor_pos);
-
-                while (cursor_pos < STR_END(str) && chr != ' ') { // skip words
-                    inc_cursor_x();
-                    chr = storage_get(str, cursor_pos);
-
-                }
-
-                while (cursor_pos < STR_END(str) && chr == ' ') { // skip spaces
-                    inc_cursor_x();
-                    chr = storage_get(str, cursor_pos);
-                }
-            }
-            else {
-                inc_cursor_x();
-            }
-           
-        }
-        if (key == SDLK_UP) {
-            dec_cursor_y();
-            if (func_mode) { //go twice as fast
-                dec_cursor_y();
-                dec_cursor_y();
-                dec_cursor_y();
-            }
-        }
-        if (key == SDLK_DOWN) {
-            inc_cursor_y();
-            if (func_mode) { //go twice as fast
-                inc_cursor_y();
-                inc_cursor_y();
-                inc_cursor_y();
-            }
-        }
-
-        if (key == SDLK_LCTRL) {
-            SDL_StopTextInput(window);
-            func_mode = true;
-        }
-        if (key == SDLK_LSHIFT) {
-            shift_down = true;
-        }
-
-        if (func_mode) {
-
-            if (key == SDLK_S) { //save
-                if (shift_down) {
-                    memset(openFile, 0, strlen(openFile)); //clear open file
-                    //UpdateTitle();
-                }
-                Save();
-            }
-            if (key == SDLK_O) { //open
-                Open();
-            }
-
-            if (key == SDLK_N) { //new
-                New();
-            }
-            if (key == SDLK_Z) { //undo
-
-                Undo();
-            }
-            if (key == SDLK_Y) { //redo
-                Redo();
-            }
-            if (key == SDLK_V) { //paste
-                Paste();
-            }
-            if (key == SDLK_Q) { //quit
-                if (shift_down) { //only in alt func mode
-                    return SDL_APP_SUCCESS;
-                }
-                
-            }
-        }
-    }
-
-    if (event->type == SDL_EVENT_KEY_UP) {
-        SDL_Keycode key = event->key.key;
-
-        if (key == SDLK_LCTRL) {
-            SDL_StartTextInput(window);
-            func_mode = false;
-        }
-
-        if (key == SDLK_LSHIFT) {
-            shift_down = false;
-        }
-    }
-
-    if (event->type == SDL_EVENT_TEXT_INPUT) {
-
-        const char* text = event->text.text;
-
-        storage_insert(str, cursor_pos, text, SDL_strlen(text), STR_UNDO);
-        unsaved_changes = true;
-
-        for (size_t i = 0; i < SDL_strlen(text); i++)
-        {
-            inc_cursor_x();
-        }
-    }
-
-    if (event->type == SDL_EVENT_QUIT) {
-        return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
-    }
-    return SDL_APP_CONTINUE;
-}
-
-void Draw();
-
-/* This function runs once per frame, and is the heart of the program. */
-SDL_AppResult SDL_AppIterate(void* appstate)
-{
-    if (do_draw) { //else just freeze whatever is currently on screen
-        SDL_SetRenderDrawColor(renderer, cfg->background_color.r, cfg->background_color.g, cfg->background_color.b, cfg->background_color.a);
-        SDL_RenderClear(renderer);
-
-        Draw();
-
-        SDL_RenderPresent(renderer);
-    }
-
-
-    return SDL_APP_CONTINUE;
-}
-
-
-/* This function runs once at shutdown. */
-void SDL_AppQuit(void* appstate, SDL_AppResult result)
-{
-    SDL_StopTextInput(window);
-    if (str) storage_free(str);
-    
-    if (cfg) unload_config(cfg);
+    //always ensure that no matter whar we free this so we dont leak
+    SDL_DestroySurface(text);
+    return NULL;
 }
 
 void RenderTextAt(float x, float y, char* buf, SDL_Color color) {
@@ -690,8 +469,6 @@ char* menu_options[] = {
     "paste : 'v'",
     "undo : 'z'",
     "redo : 'y'",
-    
-    
 };
 
 char* alt_menu_options[] = {
@@ -699,7 +476,170 @@ char* alt_menu_options[] = {
     "quit : 'q'",
 };
 
-void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {
+render_info GetRenderInfo(TTF_Font *font) {
+    render_info info;
+    info.line_gap = TTF_GetFontLineSkip(font);
+    info.cw = TTF_GetFontSize(font);
+    info.ch = (float)TTF_GetFontHeight(font);
+    SDL_GetRenderOutputSize(renderer, &info.w, &info.h);
+
+    info.xorigin = (int)info.cw * 2;
+    if (show_line_numbers) {
+        info.xorigin += (int)(info.cw * 4);
+    }
+
+
+    info.yorigin = (int)info.ch * 4;
+
+    //int max_x = (int)((w - xorigin) / (cw));
+    info.max_y = (int)((info.h - (info.yorigin + info.line_gap)) / (info.ch));
+
+    info.text_color = (SDL_Color){ cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
+
+
+
+    return info;
+}
+
+
+//returns 1 on success, and 0 on failure
+int GetCursorPos(size_t* cursor_x, size_t* cursor_y, line_t lines[], size_t line_count) {
+    //get cursor pos
+    if (cursor_pos >= 0 && cursor_pos <= STR_END(str)) {
+        if (line_count > 0) {
+            if ((lines[line_count - 1].index + lines[line_count - 1].length) < cursor_pos) {
+
+                *cursor_y = line_count + line_start;
+                *cursor_x = 0;
+                return 1;
+            }
+            else {
+
+                for (size_t i = 0; i < line_count; i++)
+                {
+                    if (cursor_pos >= lines[i].index && cursor_pos <= (lines[i].index + lines[i].length)) {
+                        *cursor_y = i + line_start;
+                        *cursor_x = cursor_pos - lines[i].index;
+                        break;
+                    }
+                }
+
+                return 1;
+            }
+        }
+    }
+}
+
+void WrapCursor( size_t *cursor_x, size_t *cursor_y, line_t lines[], size_t line_count, size_t max_y) {
+
+
+
+    int new_y = (int)*cursor_y + y_offset;
+
+    new_y = SDL_max(new_y, 0);//keep this above zero to avoid weird wrapping errors
+
+
+
+    if (line_count > max_y && new_y >= line_count + line_start) { //off bottom of page
+        //checking to make sure we only do this if theres more than 2 lines on page, which should never happen but id rather do a check than potentially jump to uninitialied memory
+        if (line_count > 2) {
+
+            int in = (int)lines[line_count - 1].index + (int)lines[line_count - 1].length; // points to the end of the last visible line
+            in++;//skip over newline
+
+            size_t i;
+            for (i = 0; i < *cursor_x; i++) //ensure that we dont accidentally skip multiple lines
+            {
+                if (storage_get(str, in + i) == '\n') {
+                    break;
+                }
+            }
+            size_t newline = SDL_min(SDL_max(y_offset, 1), line_count);
+            index_offset = lines[newline].index; //we have already cached the line index of the first line
+            line_start += newline;
+
+            cursor_pos = in + i;
+
+            *cursor_y = line_start + line_count - 1;
+            *cursor_x = i;
+
+        }
+
+
+
+    }
+    else if (new_y < line_start) { //off top of page
+
+        if (new_y >= 0) {
+            int in = (int)index_offset; // points to the first character to be shown
+
+
+            int l = 0;
+
+            size_t i;
+            for (i = 0; i < -y_offset; i++)
+            {
+                l = 0;
+                //bounds checking
+                if (in > 1) {
+                    //loops backward through the array until its reaches a newline
+                    in -= 2; // move back and skip the newline
+
+                    while (storage_get(str, in) != '\n')
+                    {
+                        in--;
+                        l++;
+                        if (in == 0) {
+                            in--; //adjust so it lands on 0
+                            break;
+                        }
+                    }
+                }
+                else {
+                    in = 0;
+                    i = line_start;
+                    break;
+                }
+            }
+            in++;//move off the found newline
+
+
+            index_offset = in;
+            if (line_start != 0) {
+                size_t ln = SDL_max(0, (line_start)-i);
+                line_start = ln;
+            }
+
+
+            *cursor_x = SDL_min(*cursor_x, l);
+            cursor_pos = in + *cursor_x;
+
+            *cursor_y = line_start; //adjust the y pos to the start of the new page
+        }
+
+
+    }
+    else { // on page
+
+        if (new_y - line_start < line_count) {
+            size_t i = SDL_clamp(new_y - line_start, 0, line_count);
+
+            cursor_pos = lines[i].index + SDL_min(*cursor_x, lines[i].length);
+
+            *cursor_y = i + line_start;
+            *cursor_x = cursor_pos - lines[i].index;
+        }
+
+
+    }
+
+
+    //clear offset buffer
+    y_offset = 0;
+
+}
+
+void DrawMenu(render_info* info, size_t cursor_x, size_t cursor_y) {
 
     //char* menu = "FUNC   open: 'o'   save: 's'   new: 'n'   quit: 'q'   paste: 'v'";
     char buf[256];
@@ -743,70 +683,92 @@ void DrawMenu(float x, float y, size_t cursor_x, size_t cursor_y) {
 
     SDL_Color color = { cfg->menu_color.r, cfg->menu_color.g, cfg->menu_color.b, SDL_ALPHA_OPAQUE };
 
-    RenderTextAt(x, y, textBuf, color);
+    RenderTextAt(info->cw, info->ch, textBuf, color);
+}
+
+void DrawCursor(render_info* info, size_t cursor_x, size_t cursor_y) {
+    const Uint64 now = SDL_GetTicks();
+
+    if (((int)(now % 1000) - 500) > 0) {
+
+        char* tt = SDL_malloc(cursor_x + 1);
+
+        if (tt) {
+
+            for (size_t i = 0; i < cursor_x; i++)
+            {
+                tt[i] = storage_get(str, cursor_pos - cursor_x + i);
+            }
+            tt[cursor_x] = '\0';
+
+            TTF_Text* ttxt = TTF_CreateText(NULL, font, tt, 0);
+
+            if (ttxt) {
+
+                int tw, th;
+                if (TTF_GetTextSize(ttxt, &tw, &th)) {
+
+                    SDL_FRect r;
+
+                    r.w = 2;
+                    r.h = info->ch - 4;
+
+                    r.x = (float)(info->xorigin + (tw));
+                    r.y = (float)(info->yorigin + ((cursor_y - line_start) * info->line_gap) + 2);
+
+                    SDL_SetRenderDrawColor(renderer, info->text_color.r, info->text_color.g, info->text_color.b, info->text_color.a);
+
+                    SDL_RenderFillRect(renderer, &r);
+
+                }
+
+
+                TTF_DestroyText(ttxt);
+            }
+
+
+            SDL_free(tt);
+        }
+
+
+    }
+}
+
+void DrawLineNumbers(render_info* info, line_t lines[], size_t line_count, size_t cursor_y) {
+
+
+    char buf[20]; //we should never have close to this many characters in the character buffer
+
+    unsigned long long int last = -1;
+    for (size_t i = 0; i < line_count; i++)
+    {
+        if (lines[i].number != last) { //dont draw multiple line numbers for wrapped lines. perhaps make this an option in the future
+            SDL_snprintf(buf, 10, "%zu", lines[i].number);
+
+            last = lines[i].number;
+
+
+            SDL_Color lineColor = { cfg->line_number_color.r,cfg->line_number_color.g, cfg->line_number_color.b, SDL_ALPHA_OPAQUE };
+            if (cursor_y == line_start + i) {
+                lineColor = (SDL_Color){ cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
+            }
+
+            RenderTextAt(info->cw, (float)(info->yorigin + info->line_gap * i), buf, lineColor);
+        }
+
+    }
+
 }
 
 
+//draws lines
+void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_count) {
 
+    *line_count = 0;
 
-SDL_Texture* CacheLine(line_t line, char* buf, SDL_Color color) {
+    int x = info->xorigin;
+    int y = info->yorigin;
 
-    SDL_Surface* text;
-    /* Create the text */
-    text = TTF_RenderText_Blended(font, buf, 0, color);
-    if (text) {
-        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, text);
-        cached_lines[line.number - line_start] = (cached_line){ line,texture,1 };
-        //always ensure that no matter whar we free this so we dont leak
-        SDL_DestroySurface(text);
-        return texture;
-    }
-    //always ensure that no matter whar we free this so we dont leak
-    SDL_DestroySurface(text);
-    return NULL;
-}
-
-void Draw() {
-    w = 0;
-    h = 0;
-    float x, y, cw, ch;
-    const float scale = 1.0f; //render scale of the characters - NOT WORKING
-
-
-    SDL_Color color = { cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
-
-    
-    const int line_gap = TTF_GetFontLineSkip(font);
-
-    //setup SDL for drawing
-    SDL_GetRenderOutputSize(renderer, &w, &h);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-
-    cw = TTF_GetFontSize(font);
-    ch = (float)TTF_GetFontHeight(font);
-
-
-
-    int xorigin = (int)cw * 2;
-    if (show_line_numbers) {
-        xorigin += (int)(cw * 4);
-    }
-
-
-    int yorigin = (int)ch * 4;
-
-    x = (float)xorigin;
-    y = (float)yorigin;
-
-    //int max_x = (int)((w - xorigin) / (cw));
-    int max_y = (int)((h - (yorigin + line_gap)) / (ch));
-
-
-    if (unsaved_changes) {
-        char astk[] = "*";
-        
-        RenderTextAt(w-ch, ch, astk, color);
-    }
 
 
     size_t curLine = line_start; //line offset into array, we need this for proper cursor placement. cached so that we dont have to loop the entire array every time we render
@@ -817,15 +779,10 @@ void Draw() {
 #define buflen 1024
     char buf[buflen]; //stores a line before its rendered
 
-
-    line_t lines[256];
+    
     lines[0].index = 0;
     lines[0].length = 0;
-    size_t line_count = 0;
-
-    size_t cursor_x = 0;
-    size_t cursor_y = line_start;
-
+    lines[0].number = 0;
 
     //loop over every character in buffer
     while (index <= STR_END(str)) {
@@ -864,7 +821,7 @@ void Draw() {
 
                 if (wrap_lines) {
                     size_t measured;
-                    if (TTF_MeasureString(font, buf, l, (int)(w - xorigin - cw), NULL, &measured)) {
+                    if (TTF_MeasureString(font, buf, l, (int)(info->w - info->xorigin - info->cw), NULL, &measured)) {
                         if (measured < l) {
                             curLine--;
                             break;
@@ -921,224 +878,331 @@ void Draw() {
 
             }
         }
+        
 
+        lines[*line_count] = linedata;
 
-
-        lines[line_count++] = linedata;
+        (*line_count)++;
 
         //increment values for next loop
-        y += line_gap;
+        y += info->line_gap;
         curLine++;
 
-        if (line_count > max_y) {
+        if (*line_count > info->max_y) {
+            break;
+        }
+        if (*line_count >= max_lines) {
             break;
         }
     }
 
-    if (cursor_pos >= 0 && cursor_pos <= STR_END(str)) {
-        if (line_count > 0) {
-            if ((lines[line_count - 1].index + lines[line_count - 1].length) < cursor_pos) {
+}
 
-                cursor_y = line_count + line_start;
-                cursor_x = 0;
+void Draw() {
+    
+    render_info info = GetRenderInfo(font);
 
-            }
-            else {
-
-                for (size_t i = 0; i < line_count; i++)
-                {
-                    if (cursor_pos >= lines[i].index && cursor_pos <= (lines[i].index + lines[i].length)) {
-                        cursor_y = i + line_start;
-                        cursor_x = cursor_pos - lines[i].index;
-                        break;
-                    }
-                }
-            }
-        }
+    //setup SDL for drawing
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
 
+
+
+    size_t line_count;
+    size_t max_lines = info.max_y + 1;
+    line_t* lines = SDL_malloc(max_lines * sizeof(line_t)); //need an extra line for newlines
+
+    //main drawing loop
+    DrawLines(&info,lines, max_lines, &line_count);
+
+
+    size_t cursor_x, cursor_y;
+    if (!GetCursorPos(&cursor_x, &cursor_y, lines, line_count)) { //set defaults if it cant find the position, so we dont try jump to uninitialised memory
+        cursor_x = 0;
+        cursor_y = line_start;
     }
 
 
-    int new_y = (int)cursor_y + y_offset;
 
-    new_y = SDL_max(new_y, 0);//keep this above zero to avoid weird wrapping errors
-
-
-
-    if (line_count > max_y && new_y >= line_count + line_start) { //off bottom of page
-        //checking to make sure we only do this if theres more than 2 lines on page, which should never happen but id rather do a check than potentially jump to uninitialied memory
-        if (line_count > 2) {
-
-            int in = (int)lines[line_count - 1].index + (int)lines[line_count - 1].length; // points to the end of the last visible line
-            in++;//skip over newline
-
-            size_t i;
-            for (i = 0; i < cursor_x; i++) //ensure that we dont accidentally skip multiple lines
-            {
-                if (storage_get(str, in + i) == '\n') {
-                    break;
-                }
-            }
-            size_t newline =  SDL_min(SDL_max(y_offset, 1), line_count);
-            index_offset = lines[newline].index; //we have already cached the line index of the first line
-            line_start += newline;
-
-            cursor_pos = in + i;
-
-            cursor_y = line_start + line_count-1;
-            cursor_x = i;
-
-        }
-
-
-
-    }
-    else if (new_y < line_start) { //off top of page
-
-        if (new_y >= 0) {
-            int in = (int)index_offset; // points to the first character to be shown
-            
-
-            int l = 0;
-
-            size_t i;
-            for (i = 0; i < -y_offset; i++)
-            {
-                l = 0;
-                //bounds checking
-                if (in > 1) {
-                    //loops backward through the array until its reaches a newline
-                    in -= 2; // move back and skip the newline
-
-                    while (storage_get(str, in) != '\n')
-                    {
-                        in--;
-                        l++;
-                        if (in == 0) {
-                            in--; //adjust so it lands on 0
-                            break;
-                        }
-                    }
-                    
-                }
-                else {
-                    in = 0;
-                    i = line_start;
-                    break;
-                }
-            }
-            in++;//move off the found newline
-           
-
-            index_offset = in;
-            if (line_start != 0) {
-                size_t ln = SDL_max(0, (line_start) - i);
-                line_start = ln;
-            }
-
-
-            cursor_x = SDL_min(cursor_x, l);
-            cursor_pos = in + cursor_x;
-
-            cursor_y = line_start; //adjust the y pos to the start of the new page
-        }
-
-
-    }
-    else { // on page
-
-        if (new_y - line_start < line_count) {
-            size_t i = SDL_clamp(new_y - line_start, 0, line_count);
-
-            cursor_pos = lines[i].index + SDL_min(cursor_x, lines[i].length);
-
-            cursor_y = i + line_start;
-            cursor_x = cursor_pos - lines[i].index;
-        }
-
-
-    }
-
-
-    //clear offset buffer
-    y_offset = 0;
-
+    //keep the cursor on page and scroll properly 
+    WrapCursor(&cursor_x, &cursor_y, lines, line_count, info.max_y);
 
     if (show_line_numbers) {
-        unsigned long long int last = -1;
-        for (size_t i = 0; i < line_count; i++)
-        {
-            if (lines[i].number != last) { //dont draw multiple line numbers for wrapped lines. perhaps make this an option in the future
-                SDL_snprintf(buf, buflen, "%zu", lines[i].number);
-
-                last = lines[i].number;
-
-
-                SDL_Color lineColor = { cfg->line_number_color.r,cfg->line_number_color.g, cfg->line_number_color.b, SDL_ALPHA_OPAQUE };
-                if (cursor_y == line_start + i) {
-                    lineColor = (SDL_Color){ cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
-                }
-
-                RenderTextAt(cw, (float)(yorigin + line_gap * i), buf, lineColor);
-            }
-
-        }
-
+        DrawLineNumbers(&info,lines,line_count,cursor_y);
     }
 
 
     if(cache_lines) cached_lines[cursor_y - line_start].filled = 0; //dont cache the line that the cursor is on
 
-    //draw cursor
+    DrawCursor(&info, cursor_x, cursor_y);
 
-    const Uint64 now = SDL_GetTicks();
 
-    if (((int)(now % 1000) - 500) > 0) {
+    DrawMenu(&info, cursor_x, cursor_y);
 
-        char* tt = SDL_malloc(cursor_x + 1);
+    if (unsaved_changes) {
+        const char astk[] = "*";
+        RenderTextAt(info.w - info.ch, info.ch, astk, info.text_color);
+    }
 
-        if (tt) {
 
-            for (size_t i = 0; i < cursor_x; i++)
-            {
-                tt[i] = storage_get(str, cursor_pos - cursor_x + i);
+
+    SDL_free(lines);
+
+}
+
+
+
+
+//SDL
+
+
+/* This function runs once at startup. */
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
+{
+    if (argc > 1) {
+        if (!ParseArgs(argc, argv)) {
+            return SDL_APP_FAILURE;
+        }
+    }
+    /* Create the window */
+    if (!SDL_CreateWindowAndRenderer(appname, 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
+        printf("Couldn't create window and renderer: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    SDL_SetRenderVSync(renderer, 1);
+
+
+
+    if (!TTF_Init()) {
+        printf("Couldn't initialize SDL_ttf: %s\n", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+
+    //call in case a file was loaded from the cmdline
+    UpdateTitle();
+
+    cfg = load_config();
+
+    info = GetRenderInfo(font);
+
+
+
+    /* Open the font */
+    font = TTF_OpenFont(cfg->default_font, (float)cfg->font_size);
+    if (!font) {
+        printf("Couldn't open font: %s\n", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+
+    if (str == NULL) { //wasnt already allocated by cmd arguments
+        str = storage_alloc(0);
+        if (str == NULL) {
+            return SDL_APP_FAILURE;
+        }
+    }
+
+
+    if (str == NULL) {
+        return SDL_APP_FAILURE;
+    }
+
+    printf("\n\nBUFFER\n\n");
+
+    printf("\n");
+
+
+    SDL_StartTextInput(window);
+
+    return SDL_APP_CONTINUE;
+}
+
+
+/* This function runs when a new event (mouse input, keypresses, etc) occurs. */
+SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
+{
+    if (event->type == SDL_EVENT_WINDOW_RESIZED) {
+        info = GetRenderInfo(font);
+    }
+
+    if (event->type == SDL_EVENT_KEY_DOWN) {
+        SDL_Keycode key = event->key.key;
+        if (key == SDLK_RETURN) {
+            storage_insert_c(str, '\n', cursor_pos, STR_UNDO);
+            inc_cursor_x();
+            unsaved_changes = true;
+        }
+        if (key == SDLK_BACKSPACE) {
+            if (cursor_pos != 0) {
+                dec_cursor_x();
+                storage_remove(str, cursor_pos, 1, STR_UNDO);
+                unsaved_changes = true;
             }
-            tt[cursor_x] = '\0';
 
-            TTF_Text* ttxt = TTF_CreateText(NULL, font, tt, 0);
 
-            if (ttxt) {
+        }
+        if (key == SDLK_LEFT) {
 
-                int tw, th;
-                if (TTF_GetTextSize(ttxt, &tw, &th)) {
+            if (func_mode) {
+                char chl = storage_get(str, cursor_pos);
 
-                    SDL_FRect r;
+                while (cursor_pos > 0 && chl == ' ') { //skip spaces
+                    dec_cursor_x();
+                    chl = storage_get(str, cursor_pos);
 
-                    r.w = 2 * scale;
-                    r.h = ch - 4 * scale;
+                }
 
-                    r.x = (float)(xorigin + (tw));
-                    r.y = (float)(yorigin + ((cursor_y - line_start) * line_gap) + 2);//  y;// SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * 2 * scale + (cursor_y * (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE + 2) * scale);
-
-                    SDL_SetRenderDrawColor(renderer, color.r,color.g,color.b,color.a);
-
-                    SDL_RenderFillRect(renderer, &r);
+                while (cursor_pos > 0 && chl != ' ') { //skip words
+                    dec_cursor_x();
+                    chl = storage_get(str, cursor_pos);
 
                 }
 
 
-                TTF_DestroyText(ttxt);
+                //inc_cursor_x();
+            }
+            else {
+                dec_cursor_x();
             }
 
+        }
+        if (key == SDLK_RIGHT) {
+            if (func_mode) {
+                char chr = storage_get(str, cursor_pos);
 
-            SDL_free(tt);
+                while (cursor_pos < STR_END(str) && chr != ' ') { // skip words
+                    inc_cursor_x();
+                    chr = storage_get(str, cursor_pos);
+
+                }
+
+                while (cursor_pos < STR_END(str) && chr == ' ') { // skip spaces
+                    inc_cursor_x();
+                    chr = storage_get(str, cursor_pos);
+                }
+            }
+            else {
+                inc_cursor_x();
+            }
+
+        }
+        if (key == SDLK_UP) {
+            dec_cursor_y();
+            if (func_mode) { //go twice as fast
+                dec_cursor_y();
+                dec_cursor_y();
+                dec_cursor_y();
+            }
+        }
+        if (key == SDLK_DOWN) {
+            inc_cursor_y();
+            if (func_mode) { //go twice as fast
+                inc_cursor_y();
+                inc_cursor_y();
+                inc_cursor_y();
+            }
         }
 
+        if (key == SDLK_LCTRL) {
+            SDL_StopTextInput(window);
+            func_mode = true;
+        }
+        if (key == SDLK_LSHIFT) {
+            shift_down = true;
+        }
 
+        if (func_mode) {
+
+            if (key == SDLK_S) { //save
+                if (shift_down) {
+                    memset(openFile, 0, strlen(openFile)); //clear open file
+                    //UpdateTitle();
+                }
+                Save();
+            }
+            if (key == SDLK_O) { //open
+                Open();
+            }
+
+            if (key == SDLK_N) { //new
+                New();
+            }
+            if (key == SDLK_Z) { //undo
+
+                Undo();
+            }
+            if (key == SDLK_Y) { //redo
+                Redo();
+            }
+            if (key == SDLK_V) { //paste
+                Paste();
+            }
+            if (key == SDLK_Q) { //quit
+                if (shift_down) { //only in alt func mode
+                    return SDL_APP_SUCCESS;
+                }
+
+            }
+        }
+    }
+
+    if (event->type == SDL_EVENT_KEY_UP) {
+        SDL_Keycode key = event->key.key;
+
+        if (key == SDLK_LCTRL) {
+            SDL_StartTextInput(window);
+            func_mode = false;
+        }
+
+        if (key == SDLK_LSHIFT) {
+            shift_down = false;
+        }
+    }
+
+    if (event->type == SDL_EVENT_TEXT_INPUT) {
+
+        const char* text = event->text.text;
+
+        storage_insert(str, cursor_pos, text, SDL_strlen(text), STR_UNDO);
+        unsaved_changes = true;
+
+        for (size_t i = 0; i < SDL_strlen(text); i++)
+        {
+            inc_cursor_x();
+        }
+    }
+
+    if (event->type == SDL_EVENT_QUIT) {
+        return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+    }
+    return SDL_APP_CONTINUE;
+}
+
+
+/* This function runs once per frame, and is the heart of the program. */
+SDL_AppResult SDL_AppIterate(void* appstate)
+{
+    if (do_draw) { //else just freeze whatever is currently on screen
+        SDL_SetRenderDrawColor(renderer, cfg->background_color.r, cfg->background_color.g, cfg->background_color.b, cfg->background_color.a);
+        SDL_RenderClear(renderer);
+
+        Draw();
+
+        SDL_RenderPresent(renderer);
     }
 
 
-    DrawMenu(cw, ch, cursor_x, cursor_y);
+    return SDL_APP_CONTINUE;
+}
 
+
+/* This function runs once at shutdown. */
+void SDL_AppQuit(void* appstate, SDL_AppResult result)
+{
+    SDL_StopTextInput(window);
+    if (str) storage_free(str);
+
+    if (cfg) unload_config(cfg);
 }
