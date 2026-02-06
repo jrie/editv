@@ -134,7 +134,7 @@ int ParseArgs(int argc, char* argv[]) {
 
 
     //flags specified
-    int c = 0; //create new file
+    int create_flag = 0; //create new file
 
     for (size_t i = 1; i < argc; i++) //loop over args looking for flags
     {
@@ -177,7 +177,7 @@ int ParseArgs(int argc, char* argv[]) {
 
             //single dash args
             else if (!strcmp(argv[i], "-write") || !strcmp(argv[i], "-w")) { //write flag
-                w = 1;
+                create_flag = 1;
             }
             else { //unknown flag
                 SDL_Log("Unknown Flag %s\n", argv[i]);
@@ -198,7 +198,7 @@ int ParseArgs(int argc, char* argv[]) {
         }
         else { //try open a file
 
-            Storage* s = storage_fromfile(argv[i],w);
+            Storage* s = storage_fromfile(argv[i], create_flag);
 
             if (s == NULL) {
                 return 0;
@@ -272,7 +272,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 
     
     /* Open the font */
-    font = TTF_OpenFont(cfg->default_font, cfg->font_size);
+    font = TTF_OpenFont(cfg->default_font, (float)cfg->font_size);
     if (!font) {
         SDL_Log("Couldn't open font: %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -351,9 +351,7 @@ void SaveTo(const char* path) {
         return;
     }
 
-    const char UTF_BOM[] = { 0xEF ,0xBB,0xBF };
-
-
+    //const char UTF_BOM[] = { 0xEF ,0xBB,0xBF };
     //SDL_WriteIO(stream, UTF_BOM, 3);
 
     SDL_WriteIO(stream, str->buffer, str->front_size * sizeof(char));
@@ -656,8 +654,8 @@ void RenderTextAt(float x, float y, char* buf, SDL_Color color) {
             rect.x = x;
             rect.y = y;
 
-            rect.h = texture->h;
-            rect.w = texture->w;
+            rect.h = (float)texture->h;
+            rect.w = (float)texture->w;
 
 
             SDL_RenderTexture(renderer, texture, NULL, &rect);
@@ -760,14 +758,14 @@ void Draw() {
     SDL_Color color = { cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
 
     
-    const float line_gap = TTF_GetFontLineSkip(font);
+    const int line_gap = TTF_GetFontLineSkip(font);
 
     //setup SDL for drawing
     SDL_GetRenderOutputSize(renderer, &w, &h);
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
     cw = TTF_GetFontSize(font);
-    ch = TTF_GetFontHeight(font);
+    ch = (float)TTF_GetFontHeight(font);
 
 
 
@@ -793,8 +791,8 @@ void Draw() {
     }
 
 
-    int curLine = (int)line_start; //line offset into array, we need this for proper cursor placement. cached so that we dont have to loop the entire array every time we render
-    int index = (int)index_offset; //start at the offset index
+    size_t curLine = line_start; //line offset into array, we need this for proper cursor placement. cached so that we dont have to loop the entire array every time we render
+    size_t index = index_offset; //start at the offset index
 
 
 
@@ -806,10 +804,6 @@ void Draw() {
     lines[0].index = 0;
     lines[0].length = 0;
     size_t line_count = 0;
-
-
-
-    size_t cursorLineIndex = 0;
 
     size_t cursor_x = 0;
     size_t cursor_y = line_start;
@@ -852,7 +846,7 @@ void Draw() {
 
                 if (wrap_lines) {
                     size_t measured;
-                    if (TTF_MeasureString(font, buf, l, w - xorigin - cw, NULL, &measured)) {
+                    if (TTF_MeasureString(font, buf, l, (int)(w - xorigin - cw), NULL, &measured)) {
                         if (measured < l) {
                             curLine--;
                             break;
@@ -875,8 +869,8 @@ void Draw() {
                 rect.x = x;
                 rect.y = y;
 
-                rect.h = tex->h;
-                rect.w = tex->w;
+                rect.h = (float)tex->h;
+                rect.w = (float)tex->w;
 
 
                 SDL_RenderTexture(renderer, tex, NULL, &rect);
@@ -899,8 +893,8 @@ void Draw() {
                 rect.x = x;
                 rect.y = y;
 
-                rect.h = tex->h;
-                rect.w = tex->w;
+                rect.h = (float)tex->h;
+                rect.w = (float)tex->w;
 
 
                 SDL_RenderTexture(renderer, tex, NULL, &rect);
@@ -958,7 +952,7 @@ void Draw() {
         //checking to make sure we only do this if theres more than 2 lines on page, which should never happen but id rather do a check than potentially jump to uninitialied memory
         if (line_count > 2) {
 
-            int in = (int)lines[line_count - 1].index + lines[line_count - 1].length; // points to the end of the last visible line
+            int in = (int)lines[line_count - 1].index + (int)lines[line_count - 1].length; // points to the end of the last visible line
             in++;//skip over newline
 
             size_t i;
@@ -1021,7 +1015,7 @@ void Draw() {
 
             index_offset = in;
             if (line_start != 0) {
-                int ln = SDL_max(0, ((int)line_start) - i);
+                size_t ln = SDL_max(0, (line_start) - i);
                 line_start = ln;
             }
 
@@ -1054,7 +1048,7 @@ void Draw() {
 
 
     if (show_line_numbers) {
-        int last = -1;
+        unsigned long long int last = -1;
         for (size_t i = 0; i < line_count; i++)
         {
             if (lines[i].number != last) { //dont draw multiple line numbers for wrapped lines. perhaps make this an option in the future
@@ -1068,7 +1062,7 @@ void Draw() {
                     lineColor = (SDL_Color){ cfg->text_color.r, cfg->text_color.g, cfg->text_color.b, SDL_ALPHA_OPAQUE };
                 }
 
-                RenderTextAt(cw, yorigin + line_gap * i, buf, lineColor);
+                RenderTextAt(cw, (float)(yorigin + line_gap * i), buf, lineColor);
             }
 
         }
@@ -1106,8 +1100,8 @@ void Draw() {
                     r.w = 2 * scale;
                     r.h = ch - 4 * scale;
 
-                    r.x = (xorigin + (tw));
-                    r.y = yorigin + ((cursor_y - line_start) * line_gap) + 2;//  y;// SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * 2 * scale + (cursor_y * (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE + 2) * scale);
+                    r.x = (float)(xorigin + (tw));
+                    r.y = (float)(yorigin + ((cursor_y - line_start) * line_gap) + 2);//  y;// SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * 2 * scale + (cursor_y * (SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE + 2) * scale);
 
                     SDL_SetRenderDrawColor(renderer, color.r,color.g,color.b,color.a);
 

@@ -81,6 +81,13 @@ static void strcmd_add(Storage *str, StorageCommandType type, const char* data, 
 
 
 void storage_free(Storage* str){
+
+
+    while (str->StoredCommands != 0)
+    {
+        strcmd_pop(str); //free stored command memory
+    }
+
     SDL_free(str->buffer);
     SDL_free(str);
 }

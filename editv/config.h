@@ -14,7 +14,7 @@ CFG_T(struct { \
 
 #define CFG_T(x,y) typedef x y;
 CFG_TYPES
-#undef CFG_TYPE
+#undef CFG_T
 
 
 //these are the edv_type with _cfg added
@@ -22,7 +22,7 @@ typedef enum {
 
 #define CFG_T(x,y) y##_cfg,
 	CFG_TYPES
-#undef CFG_TYPE
+#undef CFG_T
 
 }cfg_type;
 
@@ -40,7 +40,7 @@ CFG(edv_int,font_size,18 ) \
 
 
 typedef struct {
-#define CFG(x,arg,y) x arg ;
+#define CFG(x,arg,...) x arg ;
 	CFG_LIST
 #undef CFG
 } edv_config;

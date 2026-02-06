@@ -6,7 +6,7 @@
 #include <SDL3/SDL_log.h>
 #include <stddef.h>
 
-const char const config_path[] = "config.cfg";
+const char config_path[] = "config.cfg";
 
 
 
@@ -26,15 +26,12 @@ typedef struct {
 
 const cfg_name cfg_names[] = {
 
-#define CFG(x,arg,y) {x##_cfg, #arg, offsetof(edv_config,arg)},
+#define CFG(x,arg,...) {x##_cfg, #arg, offsetof(edv_config,arg)},
 	CFG_LIST
 #undef CFG
 };
 
 int parse_color(char* hexstr,edv_color *col) {
-
-	char hexbuf[9];
-	hexbuf[8] = '\0';
 
 	if (SDL_strlen(hexstr) != 8) {
 		return 0;
@@ -108,7 +105,7 @@ edv_config *load_config(void) {
 		size_t name_size = (sizeof(cfg_names)) / sizeof(cfg_names[0]);
 
 		//values to use in the for loop
-		edv_string str;
+
 		edv_color col;
 
 
@@ -118,8 +115,6 @@ edv_config *load_config(void) {
 		while (fgets(buf, 1024, f)) {
 
 			char* save = 0;
-			char* save1 = 0;
-
 
 			char* name = SDL_strtok_r(buf, "=", &save);
 			if (name == NULL) continue;
