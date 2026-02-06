@@ -150,28 +150,28 @@ int ParseArgs(int argc, char* argv[]) {
 
             if (!strcmp(argv[i], "--version"))
             {
-                SDL_Log("editv %s\n", VERSION);
-                SDL_Log("Copyright (C) 2026 nimrag\n");
+                printf("\neditv %s\n", VERSION);
+                printf("Copyright (C) 2026 nimrag\n");
                 return 0;
             }
             else if (!strcmp(argv[i], "--help"))
             {
-                SDL_Log("Usage\n\n");
-                SDL_Log("\teditv\n\n");
+                printf("Usage\n\n");
+                printf("\teditv\n\n");
 
-                SDL_Log("Opens with no open file.\n\n");
+                printf("Opens with no open file.\n\n");
 
-                SDL_Log("\teditv [OPTIONS] <path>\n\n");
+                printf("\teditv [OPTIONS] <path>\n\n");
 
-                SDL_Log("Opens with the file at <path> loaded.\n\n");
+                printf("Opens with the file at <path> loaded.\n\n");
 
-                SDL_Log("Options\n\n");
-                SDL_Log("\t-write, -w <path>       = Write/create a new file at <path>\n");
+                printf("Options\n\n");
+                printf("\t-write, -w <path>       = Write/create a new file at <path>\n");
 
-                SDL_Log("\n");
+                printf("\n");
 
-                SDL_Log("\t--version               = Print current version and exit\n");
-                SDL_Log("\t--help                  = Print usage information and exit\n");
+                printf("\t--version               = Print current version and exit\n");
+                printf("\t--help                  = Print usage information and exit\n\n");
                 return 0;
             }
 
@@ -180,7 +180,7 @@ int ParseArgs(int argc, char* argv[]) {
                 create_flag = 1;
             }
             else { //unknown flag
-                SDL_Log("Unknown Flag %s\n", argv[i]);
+                printf("Unknown Flag %s\n", argv[i]);
                 goto invalid_args;
             }
 
@@ -227,12 +227,12 @@ int ParseArgs(int argc, char* argv[]) {
     return 1; //normal operation, exit
 
 invalid_args:
-    SDL_Log("Invalid Arguments: ");
+    printf("Invalid Arguments: ");
     for (size_t i = 1; i < argc-1; i++)
     {
-        SDL_Log("%s, ", argv[i]);
+        printf("%s, ", argv[i]);
     }
-    SDL_Log("%s", argv[argc-1]);
+    printf("%s", argv[argc-1]);
     return 0;
 }
 
@@ -257,7 +257,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 
 
     if (!TTF_Init()) {
-        SDL_Log("Couldn't initialize SDL_ttf: %s\n", SDL_GetError());
+        printf("Couldn't initialize SDL_ttf: %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
@@ -274,7 +274,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
     /* Open the font */
     font = TTF_OpenFont(cfg->default_font, (float)cfg->font_size);
     if (!font) {
-        SDL_Log("Couldn't open font: %s\n", SDL_GetError());
+        printf("Couldn't open font: %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
@@ -354,7 +354,7 @@ void SaveTo(const char* path) {
 
     SDL_IOStream* stream = SDL_IOFromFile(path, SAVE_MODE);
     if (stream == NULL) {
-        SDL_Log("Invalid save path: '%s'\n",path);
+        printf("Invalid save path: '%s'\n",path);
         return;
     }
 

@@ -13,7 +13,7 @@ It is currently very basic, but supports all the basic operations needed in a te
 - 4 directional Cursor Movement
 - Text Scrolling
 - Pasting from clipboard
-- -Undo (Redo not yet implemented)
+- Undo/Redo
 
 ### In Development
 
@@ -26,14 +26,18 @@ It is currently very basic, but supports all the basic operations needed in a te
 
 Open to immediately begin writing
 
-To view options hold 'ctrl' and press a corresponding key 
-'o' - Open file
-'s' - save file
-'v' - paste from clipboard
-'q' - quit
-'z' - undo
-
-You can also edit config.cfg (generated when first loaded) for some simple customisation options
+#### To view options hold 'ctrl' and press a corresponding key   
+'o' - Open file  
+'s' - save file  
+'v' - paste from clipboard  
+'z' - undo  
+'y' - redo  
+  
+#### To view alt options press 'ctrl' + 'shift'  
+'s' - save as  
+'q' - quit  
+  
+You can also edit config.cfg (generated when first loaded) for some simple customisation options  
 
 ## Building
 
@@ -64,6 +68,8 @@ cd build
 cmake ..
 cmake --build .
 ```
+
+To disable the console on Windows, uncomment ` #target_link_options(editv PRIVATE -mwindows) ` in CMakeLists.txt
 
 ### gcc
 
