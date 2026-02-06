@@ -121,6 +121,8 @@ void storage_free(Storage* str){
         strcmd_pop(str); //free stored command memory
     }
 
+    strcmd_clear_redos(str);
+
     SDL_free(str->buffer);
     SDL_free(str);
 }
