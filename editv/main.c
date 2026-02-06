@@ -13,7 +13,7 @@
 
 #define EDV_VERSION_MAJOR 0
 #define EDV_VERSION_MINOR 1
-#define EDV_VERSION_PATCH 6
+#define EDV_VERSION_PATCH 7
 
 #define STRINGIFY0(s) # s
 #define STRINGIFY(s) STRINGIFY0(s)
