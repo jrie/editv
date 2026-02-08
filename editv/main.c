@@ -114,6 +114,7 @@ void dec_cursor_y() {
 void inc_cursor_x() {
 
     if (cursor_pos >= STR_END(str) ) {
+        cursor_pos = STR_END(str);
         return;
     }
 
@@ -123,7 +124,8 @@ void inc_cursor_x() {
 void dec_cursor_x() {
 
 
-    if (cursor_pos == 0) {
+    if (cursor_pos <= 0) {
+        cursor_pos = 0;
         return;
     }
 
@@ -578,7 +580,6 @@ void WrapCursor( size_t *cursor_x, size_t *cursor_y, line_t lines[], size_t line
         if (new_y >= 0) {
             int in = (int)index_offset; // points to the first character to be shown
 
-
             int l = 0;
 
             size_t i;
@@ -599,6 +600,7 @@ void WrapCursor( size_t *cursor_x, size_t *cursor_y, line_t lines[], size_t line
                             break;
                         }
                     }
+                    in++;//move off the found newline
                 }
                 else {
                     in = 0;
@@ -606,7 +608,7 @@ void WrapCursor( size_t *cursor_x, size_t *cursor_y, line_t lines[], size_t line
                     break;
                 }
             }
-            in++;//move off the found newline
+            
 
 
             index_offset = in;
@@ -905,7 +907,7 @@ void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_
 
 void Draw() {
     
-    render_info info = GetRenderInfo(font);
+    //render_info info = GetRenderInfo(font);
 
     //setup SDL for drawing
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -990,8 +992,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 
     cfg = load_config();
 
-    info = GetRenderInfo(font);
-
 
 
     /* Open the font */
@@ -1000,6 +1000,11 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
         printf("Couldn't open font: %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+
+
+    info = GetRenderInfo(font);
+
+
 
 
     if (str == NULL) { //wasnt already allocated by cmd arguments
