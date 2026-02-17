@@ -27,7 +27,7 @@ add_executable(editv ${SOURCE_FILES})
 
 if (WIN32)
 
-#target_link_options(editv PRIVATE -mwindows)
+target_link_options(editv PRIVATE -mwindows)
 
 endif (WIN32)
 

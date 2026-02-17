@@ -826,17 +826,22 @@ void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_
 
                 index++; //increment the index to the next char
 
-                if (wrap_lines) {
-                    size_t measured;
-                    if (TTF_MeasureString(font, buf, l, (int)(info->w - info->xorigin - info->cw), NULL, &measured)) {
-                        if (measured < l) {
-                            curLine--;
-                            break;
-                        }
-                    }
-                }
+
 
             }
+            //optimised - do outside the loop instead of every single character
+            if (wrap_lines) {
+                size_t measured;
+                if (TTF_MeasureString(font, buf, l, (int)(info->w - info->xorigin - info->cw), NULL, &measured)) {
+                    if (measured < l) {
+                        //curLine--;
+                        int diff = l - measured;
+                        index -= diff+1;
+                        l -= diff;
+                    }
+                }
+            }
+
 
             buf[l] = '\0'; //null terminate buffer
 
