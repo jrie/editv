@@ -27,12 +27,16 @@ bool do_draw = true; //lock this when doing callbacks that modify/replace the st
 bool func_mode = false;
 bool shift_down = false;
 
+bool left_alt_down = false;
+bool home_down = false; //pos1 key
+bool end_down = false; //end key
 
 typedef struct
 {
     size_t number;
     size_t index; //index into the buffer that this line starts
     size_t length;
+    size_t wrap_count; // how much lines the text is wrapped
 } line_t;
 
 typedef struct {
@@ -150,6 +154,262 @@ void UpdateTitle() {
 
 
 }
+
+
+void Handle_Traverse_Start() {
+    cursor_pos = 0;
+    index_offset = 0;
+    line_start = 0;
+}
+
+size_t Get_Line_Count() {
+    char ch = 0;
+    size_t offset = 0;
+    size_t lines = 0;
+
+    while ((ch = storage_get(str, ++offset))) {
+        if (ch == '\n') {
+            ++lines;
+        } else if (ch == '\0') {
+            break;
+        }
+    }
+
+    return lines;
+}
+
+void Update_Line_Wrap_Count() {
+
+    size_t index = 0;
+    size_t curLine = 0;
+    int x = info.xorigin;
+    int y = info.yorigin;
+
+    size_t buflen = str->buffer_size;
+    char buf[buflen];
+    int l = 0;
+
+    cached_lines[0].line.index = 0;
+    cached_lines[0].line.length = 0;
+    cached_lines[0].line.number = 0;
+    cached_lines[0].line.wrap_count = 0;
+
+    //loop over every character in buffer
+    while (index <= STR_END(str)) {
+
+
+        //store current line index
+
+        line_t linedata;
+
+        linedata.index = index;
+        linedata.number = curLine;
+        linedata.wrap_count = 0;
+
+        //load line into buffer
+        int l = 0;
+
+        while (l < buflen && index <= STR_END(str))
+        {
+            char c = storage_get(str, index);
+
+            if (c == '\n') { //hit a newline
+                ++curLine;
+                index++; //move index over the newline
+                break;
+            }
+
+            //copy char and increase line length
+            buf[l++] = c;
+
+            index++; //increment the index to the next char
+
+
+
+        }
+        //optimised - do outside the loop instead of every single character
+        if (wrap_lines) {
+            size_t measured;
+            if (TTF_MeasureString(font, buf, l, (int)(info.w - info.xorigin - info.cw), NULL, &measured)) {
+                if (measured < l) {
+                    //curLine--;
+                    ++linedata.wrap_count;
+
+                    int diff = l - measured;
+                    index -= diff+1;
+                    l -= diff;
+                }
+            }
+        }
+
+
+        buf[l] = '\0'; //null terminate buffer
+
+
+        linedata.length = l;
+    }
+}
+
+void Handle_Traverse_End() {
+
+    do_draw = false;
+
+    if (wrap_lines) { //Recalculate line wrap counts
+        Update_Line_Wrap_Count();
+    }
+
+    size_t lines = Get_Line_Count();
+
+    char ch = 0;
+    size_t index_shift = 0;
+    size_t current = 0;
+    line_start = 0;
+    index_offset = 0;
+
+    #ifdef DEBUG
+    printf("Line count: %lu\n", lines);
+    #endif
+    /*
+    if (wrap_lines) { // Does not yet optimally work, some position, only works after scrolling through all lines in editor
+        printf("Traversing to end of wrappend lines.\n");
+        while (true) {
+            if (current <= lines) {
+                line_t line = cached_lines[current].line;
+                line_start += line.wrap_count + 1;
+                index_shift += line.length;
+                ++current;
+
+                if (current > info.max_y) {
+                    if (line_start - 1 > lines - info.max_y) {
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            break;
+         }
+    } else {
+    */
+        while (true) {
+            while ((ch = storage_get(str, index_shift++)) != '\n' && ch != '\0') {
+                ;
+            }
+
+            if (ch == '\n') {
+                ++line_start;
+            } else if (ch == '\0') {
+                break;
+            }
+
+            if (lines > info.max_y) {
+                if (line_start > lines - info.max_y) {
+                    break;
+                }
+            }
+        }
+    //}
+
+
+    if (lines > info.max_y) {
+        index_offset = index_shift;
+        cursor_pos = STR_END(str);
+    } else {
+        line_start = 0;
+        index_offset = 0;
+        cursor_pos = 0;
+    }
+
+    do_draw = true;
+}
+
+
+void Handle_Home_Key() {
+    //advance to end if start of edit
+    if (cursor_pos == 0) {
+        //Handle_Traverse_End();
+        return;
+    }
+
+    char ch = 0;
+    bool dec_line_start = false;
+    bool dec_index_offset = false;
+
+    //go one position/line up in text
+    if (storage_get(str, cursor_pos - 1) == '\n')
+    {
+        --cursor_pos;
+        dec_line_start = true;
+        dec_index_offset = true;
+    }
+    //advance to end of previous line
+    else if (storage_get(str, cursor_pos) == '\n' || storage_get(str, cursor_pos) == '\0')
+    {
+        while ((ch = storage_get(str, --cursor_pos)) != '\n' && cursor_pos != 0) {
+            ;
+        }
+
+        if (index_offset != 0 || cursor_pos != 0) {
+          ++cursor_pos;
+        }
+    } else {
+        while ((ch = storage_get(str, --cursor_pos)) != '\n' && cursor_pos != 0) {
+            ;
+        }
+
+        if (cursor_pos != 0) {
+            ++cursor_pos;
+        }
+    }
+
+    //restore previous line text when reaching a previous line
+    if (cursor_pos < index_offset + 1 && line_start != 0) {
+      if (dec_line_start) {
+        --line_start;
+      }
+
+      if (dec_index_offset) {
+        --index_offset;
+      }
+
+      //set index_offset in order to restore current line text
+      while ((ch = storage_get(str, --index_offset)) != '\n' && index_offset != 0) {
+        ;
+      }
+
+      ++index_offset;
+
+      if (line_start == 0) {
+        index_offset = 0;
+      }
+    }
+}
+
+
+void Handle_End_Key() {
+    //go to next line if end of line
+    if (storage_get(str, cursor_pos) == '\n') {
+        ++cursor_pos;
+        return;
+    }
+
+    /*
+    //jump to front if on edit end
+    if (cursor_pos == STR_END(str)) {
+        Handle_Traverse_Start();
+        return;
+    }
+    */
+
+    //advance to end of current line
+    char ch = 0;
+    while ((ch = storage_get(str, cursor_pos++)) != '\n' && ch != '\0' && cursor_pos > 0) {
+        ;
+    }
+
+    --cursor_pos;
+}
+
 
 //#define KRED  "\x1B[31m"
 //returns 1 if continue, 0 if close
@@ -792,6 +1052,7 @@ void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_
     lines[0].index = 0;
     lines[0].length = 0;
     lines[0].number = 0;
+    lines[0].wrap_count = 0;
 
     //loop over every character in buffer
     while (index <= STR_END(str)) {
@@ -810,6 +1071,7 @@ void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_
 
             linedata.index = index;
             linedata.number = curLine;
+            linedata.wrap_count = 0;
 
             //load line into buffer
             int l = 0;
@@ -837,6 +1099,8 @@ void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_
                 if (TTF_MeasureString(font, buf, l, (int)(info->w - info->xorigin - info->cw), NULL, &measured)) {
                     if (measured < l) {
                         //curLine--;
+			            ++linedata.wrap_count;
+
                         int diff = l - measured;
                         index -= diff+1;
                         l -= diff;
@@ -1002,6 +1266,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
 
 
     /* Open the font */
+
+    const char* base_path = SDL_GetBasePath();
+	char font_path[1024];
+	sprintf(font_path, "%s%s", base_path, cfg->default_font);
+	memcpy(cfg->default_font, font_path, strlen(font_path)+1);
+
+
     font = TTF_OpenFont(cfg->default_font, (float)cfg->font_size);
     if (!font) {
         printf("Couldn't open font: %s\n", SDL_GetError());
@@ -1046,6 +1317,16 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
     if (event->type == SDL_EVENT_KEY_DOWN) {
         SDL_Keycode key = event->key.key;
+
+        #ifdef DEBUG
+        printf("SDL scancode: %u\n", event->key.scancode); //print keycode
+        printf("current cursor_pos: %lu\n", cursor_pos);
+        printf("max_y: %i\n", info.max_y);
+        printf("line_gap: %i\n", info.line_gap);
+        printf("line_start: %lu\n", line_start);
+        printf("index_offset: %lu\n", index_offset);
+        #endif
+
         if (key == SDLK_RETURN) {
             storage_insert_c(str, '\n', cursor_pos, STR_UNDO);
             inc_cursor_x();
@@ -1058,9 +1339,13 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
                 storage_remove(str, cursor_pos, 1, STR_UNDO);
                 unsaved_changes = true;
             }
-
-
         }
+
+        if (key == SDLK_DELETE) {
+            storage_remove(str, cursor_pos, 1, STR_UNDO);
+            unsaved_changes = true;
+        }
+
         if (key == SDLK_LEFT) {
 
             if (func_mode) {
@@ -1113,7 +1398,15 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
                 dec_cursor_y();
                 dec_cursor_y();
             }
+
+            /*
+            if (left_alt_down && cursor_pos == 0) { //move to end of edit
+                y_offset = 0;
+                Handle_Traverse_End();
+            }
+            */
         }
+
         if (key == SDLK_DOWN) {
             inc_cursor_y();
             if (func_mode) { //go twice as fast
@@ -1121,6 +1414,13 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
                 inc_cursor_y();
                 inc_cursor_y();
             }
+
+            /*
+            if (left_alt_down && cursor_pos == STR_END(str)) { //move to start of edit
+                y_offset = 0;
+                Handle_Traverse_Start();
+            }
+            */
         }
 
         if (key == SDLK_LCTRL) {
@@ -1130,6 +1430,20 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         if (key == SDLK_LSHIFT) {
             shift_down = true;
         }
+        if (key == SDLK_LALT) {
+            left_alt_down = true;
+        }
+
+        if (key == SDLK_HOME) {
+            home_down = true;
+            Handle_Home_Key();
+        }
+
+        if (key == SDLK_END) {
+            end_down = true;
+            Handle_End_Key();
+        }
+
 
         if (func_mode) {
 
@@ -1168,6 +1482,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
     if (event->type == SDL_EVENT_KEY_UP) {
         SDL_Keycode key = event->key.key;
+
         if (key == SDLK_LCTRL) {
             SDL_StartTextInput(window);
             func_mode = false;
@@ -1175,6 +1490,17 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
         if (key == SDLK_LSHIFT) {
             shift_down = false;
+        }
+
+        if (key == SDLK_LALT) {
+            left_alt_down = false;
+        }
+
+        if (key == SDLK_HOME) {
+            home_down = false;
+        }
+        if (key == SDLK_END) {
+            end_down = false;
         }
     }
 
