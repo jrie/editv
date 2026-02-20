@@ -343,11 +343,11 @@ void SaveCallback(void* userdata, const char* const* filelist, int filter) {
     SDL_strlcpy(openFile, filelist[0], len+1);
     lastFilePath = openFile;
 
-    
+
     SaveTo(openFile);
 
 
-    
+
     printf("Saved As: '%s'\n", openFile);
 
     UpdateTitle();
@@ -440,14 +440,14 @@ SDL_Texture* CacheLine(line_t line, char* buf, SDL_Color color) {
     return NULL;
 }
 
-void RenderTextAt(float x, float y, char* buf, SDL_Color color) {
+void RenderTextAt(float x, float y, const char* buf, SDL_Color color) {
 
     SDL_Surface* text;
     /* Create the text */
     text = TTF_RenderText_Blended(font, buf, 0, color);
     if (text) {
         texture = SDL_CreateTextureFromSurface(renderer, text);
-        
+
 
         if (texture != NULL) {
             SDL_FRect rect;
@@ -608,7 +608,7 @@ void WrapCursor( size_t *cursor_x, size_t *cursor_y, line_t lines[], size_t line
                     break;
                 }
             }
-            
+
 
 
             index_offset = in;
@@ -654,7 +654,7 @@ void DrawMenu(render_info* info, size_t cursor_x, size_t cursor_y) {
     char* textBuf;
 
     if (func_mode) {
-        
+
         if (shift_down) {
             int stride = SDL_snprintf(buf, 256, "FUNC(alt)");
 
@@ -786,7 +786,7 @@ void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_
 #define buflen 1024
     char buf[buflen]; //stores a line before its rendered
 
-    
+
     lines[0].index = 0;
     lines[0].length = 0;
     lines[0].number = 0;
@@ -890,7 +890,7 @@ void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_
 
             }
         }
-        
+
 
         lines[*line_count] = linedata;
 
@@ -911,7 +911,7 @@ void DrawLines(render_info *info, line_t* lines, size_t max_lines, size_t *line_
 }
 
 void Draw() {
-    
+
     //render_info info = GetRenderInfo(font);
 
     //setup SDL for drawing
@@ -936,7 +936,7 @@ void Draw() {
 
 
 
-    //keep the cursor on page and scroll properly 
+    //keep the cursor on page and scroll properly
     WrapCursor(&cursor_x, &cursor_y, lines, line_count, info.max_y);
 
     if (show_line_numbers) {
