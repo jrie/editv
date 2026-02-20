@@ -535,6 +535,8 @@ int GetCursorPos(size_t* cursor_x, size_t* cursor_y, line_t lines[], size_t line
             }
         }
     }
+
+    return 0;
 }
 
 void WrapCursor( size_t *cursor_x, size_t *cursor_y, line_t lines[], size_t line_count, size_t max_y) {
@@ -1047,6 +1049,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
         if (key == SDLK_RETURN) {
             storage_insert_c(str, '\n', cursor_pos, STR_UNDO);
             inc_cursor_x();
+
             unsaved_changes = true;
         }
         if (key == SDLK_BACKSPACE) {
@@ -1165,7 +1168,6 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
 
     if (event->type == SDL_EVENT_KEY_UP) {
         SDL_Keycode key = event->key.key;
-
         if (key == SDLK_LCTRL) {
             SDL_StartTextInput(window);
             func_mode = false;
