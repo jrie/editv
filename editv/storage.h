@@ -31,9 +31,8 @@ typedef struct StorageCommand {
 } StorageCommand;
 
 
-typedef struct Storage
-{
-    char *buffer;
+typedef struct Storage {
+    char* buffer;
 
     size_t buffer_size;
 
@@ -41,16 +40,14 @@ typedef struct Storage
 
     size_t gap_size;
 
-    StorageCommand *first_undo;
-    StorageCommand *last_undo;
+    StorageCommand* first_undo;
+    StorageCommand* last_undo;
 
     //we dont need a first redo as we will never have to trim it, as the redo stack can never be bigger than the undo stack
-    StorageCommand *last_redo;
+    StorageCommand* last_redo;
 
     size_t StoredUndos;
 } Storage;
-
-
 
 
 
@@ -75,11 +72,14 @@ int storage_grow(Storage* str);
 
 int storage_realloc(Storage* str);
 
-int storage_insert_c(Storage* str, char c, size_t pos, StorageSaveMode savemode);
-int storage_insert(Storage* str, size_t pos, const char* s, size_t length, StorageSaveMode savemode);
+int storage_insert_c(Storage* str, char c, size_t pos,
+                     StorageSaveMode savemode);
+int storage_insert(Storage* str, size_t pos, const char* s, size_t length,
+                   StorageSaveMode savemode);
 
 
-int storage_remove(Storage* str, size_t pos, size_t count, StorageSaveMode savemode);
+int storage_remove(Storage* str, size_t pos, size_t count,
+                   StorageSaveMode savemode);
 
 int storage_undo(Storage* str);
 int storage_redo(Storage* str);

@@ -21,10 +21,10 @@ CFG_TYPES
 typedef enum {
 
 #define CFG_T(x,y) y##_cfg,
-	CFG_TYPES
+    CFG_TYPES
 #undef CFG_T
 
-}cfg_type;
+} cfg_type;
 
 //first arg - type
 //second arg - name
@@ -41,7 +41,7 @@ CFG(edv_int,font_size,18 ) \
 
 typedef struct {
 #define CFG(x,arg,...) x arg ;
-	CFG_LIST
+    CFG_LIST
 #undef CFG
 } edv_config;
 
